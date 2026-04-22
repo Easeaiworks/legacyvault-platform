@@ -134,7 +134,7 @@ export default function ContactsPage() {
                     </span>
                   </div>
                   <div className="mt-1 text-sm text-ink-500">
-                    <span className="font-medium">{ACCESS_TIER_LABELS[tc.accessTier].split(' — ')[0]}</span>
+                    <span className="font-medium">{(ACCESS_TIER_LABELS[tc.accessTier] ?? tc.accessTier).split(' — ')[0]}</span>
                     {' · '}trigger: {tc.triggerType.replace('_', ' ').toLowerCase()}
                     {' · '}waiting period: {tc.waitingPeriodDays} days
                   </div>
