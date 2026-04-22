@@ -1,0 +1,13 @@
+# Require review from owners on sensitive paths.
+# Fill in with actual GitHub usernames / teams once the repo exists.
+
+# Security + infra
+/infrastructure/              @Easeaiworks
+/.github/                     @Easeaiworks
+/packages/database/prisma/    @Easeaiworks
+/apps/api/src/common/crypto/  @Easeaiworks
+/apps/api/src/common/audit/   @Easeaiworks
+/apps/api/src/modules/auth/   @Easeaiworks
+
+# Everything else
+*                             @Easeaiworks

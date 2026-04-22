@@ -1,0 +1,757 @@
+// LegacyVault Platform — Database Schema
+// Covers: LegacyVault (consumer estate planning), HeirTrace (B2B heir search), Registry (opt-in)
+//
+// Security principles enforced here:
+//   - All PII-sensitive fields are designed for field-level encryption at the app layer.
+//     Fields named with `_encrypted` suffix store ciphertext; see apps/api/src/common/crypto.
+//   - All tables include createdAt / updatedAt for audit; sensitive tables include deletedAt (soft-delete).
+//   - AuditLog is append-only. Postgres REVOKE UPDATE/DELETE is enforced in migrations.
+//   - TenantId is present on B2B-scoped rows (HeirTrace cases). Row-Level-Security policies
+//     must be configured in a migration (see 20260421_rls_policies.sql template).
+//
+// Naming: models in PascalCase, columns in camelCase, tables in snake_case via @@map.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, uuid_ossp(map: "uuid-ossp"), citext, pg_trgm]
+}
+
+// ============================================================================
+// TENANCY & IDENTITY
+// ============================================================================
+
+/// Top-level tenant for B2B (HeirTrace) customers.
+/// LegacyVault consumers have a personal "tenant" created on signup (type = INDIVIDUAL).
+model Tenant {
+  id              String       @id @default(uuid()) @db.Uuid
+  type            TenantType
+  name            String       @db.VarChar(255)
+  /// Stripe customer ID for billing.
+  stripeCustomerId String?     @unique @map("stripe_customer_id")
+  /// ISO 3166-1 alpha-2 country code of primary jurisdiction (US, CA).
+  jurisdiction    String       @db.Char(2)
+  /// AWS KMS key ARN used for per-tenant envelope encryption (B2B only).
+  kmsKeyArn       String?      @map("kms_key_arn")
+  /// Data residency region — affects where documents and backups live.
+  dataResidency   DataRegion   @default(US_EAST_1) @map("data_residency")
+  settings        Json         @default("{}")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+
+  users           User[]
+  principals      Principal[]
+  cases           HeirSearchCase[]
+  auditLogs       AuditLog[]
+
+  @@index([type])
+  @@index([jurisdiction])
+  @@map("tenants")
+}
+
+enum TenantType {
+  INDIVIDUAL     // LegacyVault consumer
+  FAMILY         // LegacyVault family plan
+  LAW_FIRM       // HeirTrace customer
+  FINANCIAL_INST // bank / trust / credit union
+  FIDUCIARY      // professional fiduciary
+}
+
+enum DataRegion {
+  US_EAST_1
+  US_WEST_2
+  CA_CENTRAL_1
+}
+
+/// A human user who can log in. Tied to an auth provider (WorkOS/Clerk).
+model User {
+  id                  String     @id @default(uuid()) @db.Uuid
+  tenantId            String     @map("tenant_id") @db.Uuid
+  /// Opaque identifier from auth provider (e.g., WorkOS user id).
+  authProviderId      String     @unique @map("auth_provider_id")
+  authProvider        String     @default("workos") @map("auth_provider")
+  email               String     @db.Citext
+  emailVerifiedAt     DateTime?  @map("email_verified_at")
+  firstName           String?    @map("first_name")
+  lastName            String?    @map("last_name")
+  /// Preferred locale (en-US, en-CA, fr-CA).
+  locale              String     @default("en-US")
+  /// MFA enforcement level for this user.
+  mfaEnforced         Boolean    @default(false) @map("mfa_enforced")
+  /// Hardware key required (for admins / HeirTrace staff).
+  hardwareKeyRequired Boolean    @default(false) @map("hardware_key_required")
+  status              UserStatus @default(PENDING_VERIFICATION)
+  /// Last time user proved they're alive — powers the dead-man's-switch.
+  lastCheckInAt       DateTime?  @map("last_check_in_at")
+  createdAt           DateTime   @default(now()) @map("created_at")
+  updatedAt           DateTime   @updatedAt @map("updated_at")
+  deletedAt           DateTime?  @map("deleted_at")
+
+  tenant              Tenant     @relation(fields: [tenantId], references: [id])
+  roles               UserRole[]
+  sessions            Session[]
+  principalAccounts   Principal[] @relation("PrincipalOwner")
+  auditLogs           AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([status])
+  @@map("users")
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+  DECEASED   // protects estate data: read-only for authorized heirs, no edits
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  role      Role
+  /// Scope — null = tenant-wide. For HeirTrace, may scope a role to a specific case.
+  scopeType String?  @map("scope_type")
+  scopeId   String?  @map("scope_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role, scopeType, scopeId])
+  @@index([userId])
+  @@map("user_roles")
+}
+
+enum Role {
+  // LegacyVault (consumer)
+  VAULT_OWNER
+  VAULT_VIEWER
+  TRUSTED_CONTACT
+  EXECUTOR
+  // HeirTrace (B2B)
+  CASE_LEAD
+  CASE_COLLABORATOR
+  CASE_VIEWER
+  FIRM_ADMIN
+  // Platform
+  PLATFORM_ADMIN
+  PLATFORM_SUPPORT
+}
+
+model Session {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  /// SHA-256 of the refresh token — never store the raw token.
+  refreshHash    String   @unique @map("refresh_hash")
+  ipAddress      String?  @map("ip_address") @db.Inet
+  userAgent      String?  @map("user_agent")
+  expiresAt      DateTime @map("expires_at")
+  revokedAt      DateTime? @map("revoked_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================================================
+// CORE ESTATE MODEL — Principal, Person, Asset, Document, Beneficiary
+// ============================================================================
+
+/// A Principal is "the person whose estate is being planned" — usually the VAULT_OWNER.
+/// Separated from User so that family plans can document multiple principals (e.g., spouses),
+/// and so HeirTrace cases can reference a deceased Principal with no User account.
+model Principal {
+  id            String    @id @default(uuid()) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  /// Linked user (null for deceased principals in HeirTrace cases).
+  ownerUserId   String?   @map("owner_user_id") @db.Uuid
+  legalFirstName  String  @map("legal_first_name")
+  legalMiddleName String? @map("legal_middle_name")
+  legalLastName   String  @map("legal_last_name")
+  /// Maiden / prior names — important for heir search fuzzy matching.
+  priorNames    Json      @default("[]") @map("prior_names")
+  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
+  dateOfDeath   DateTime? @map("date_of_death") @db.Date
+  /// ENCRYPTED at app layer — SSN (US) or SIN (CA). Only read by authorized roles.
+  govIdEncrypted String?  @map("gov_id_encrypted")
+  govIdType     GovIdType? @map("gov_id_type")
+  /// Residential jurisdiction — US state or CA province abbreviation.
+  residenceRegion String? @map("residence_region") @db.VarChar(8)
+  residenceCountry String @default("US") @map("residence_country") @db.Char(2)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  owner         User?     @relation("PrincipalOwner", fields: [ownerUserId], references: [id])
+  contacts      Person[]
+  assets        Asset[]
+  documents     Document[]
+  beneficiaries Beneficiary[]
+  trustedContacts TrustedContact[]
+  instructions  Instruction[]
+  registryEntry RegistryEntry?
+  heirSearchCase HeirSearchCase?
+
+  @@index([tenantId])
+  @@index([legalLastName, legalFirstName])
+  @@map("principals")
+}
+
+enum GovIdType {
+  SSN        // US
+  SIN        // Canada
+  ITIN       // US
+  OTHER
+}
+
+/// A Person is anyone referenced in a Principal's estate — spouse, child, executor, attorney.
+/// May or may not have a User account. Used for beneficiary designations and contacts.
+model Person {
+  id              String    @id @default(uuid()) @db.Uuid
+  principalId     String    @map("principal_id") @db.Uuid
+  firstName       String    @map("first_name")
+  lastName        String    @map("last_name")
+  relationship    Relationship
+  /// If this person has a LegacyVault account and can be linked.
+  linkedUserId    String?   @map("linked_user_id") @db.Uuid
+  email           String?   @db.Citext
+  phoneEncrypted  String?   @map("phone_encrypted")
+  dateOfBirth     DateTime? @map("date_of_birth") @db.Date
+  addressEncrypted String?  @map("address_encrypted")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  principal       Principal @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  beneficiaryOf   Beneficiary[]
+  trustedContact  TrustedContact?
+
+  @@index([principalId])
+  @@index([lastName, firstName])
+  @@map("persons")
+}
+
+enum Relationship {
+  SPOUSE
+  CHILD
+  STEPCHILD
+  PARENT
+  SIBLING
+  GRANDCHILD
+  GRANDPARENT
+  EXECUTOR
+  ATTORNEY
+  ACCOUNTANT
+  FINANCIAL_ADVISOR
+  GUARDIAN
+  TRUSTEE
+  FRIEND
+  CHARITY
+  OTHER
+}
+
+/// An Asset is anything of value: accounts, properties, policies, digital holdings.
+/// Asset types are deliberately broad to cover US + Canadian retirement / tax-advantaged accounts.
+model Asset {
+  id                String       @id @default(uuid()) @db.Uuid
+  principalId       String       @map("principal_id") @db.Uuid
+  category          AssetCategory
+  type              AssetType
+  nickname          String       @db.VarChar(255)
+  institutionName   String?      @map("institution_name")
+  /// Last 4 digits only — full account number goes in accountNumberEncrypted.
+  accountLast4      String?      @map("account_last4") @db.VarChar(4)
+  accountNumberEncrypted String? @map("account_number_encrypted")
+  /// Current estimated value in minor units (cents). Nullable for non-monetary assets.
+  estimatedValueCents BigInt?    @map("estimated_value_cents")
+  currency          String       @default("USD") @db.Char(3)
+  /// Location of physical asset (e.g., "Safe deposit box, First National, Branch 012").
+  location          String?
+  /// Free-form notes, access instructions, passphrase hints (NOT passwords — never store those).
+  notes             String?
+  /// Status: ACTIVE, CLOSED, TRANSFERRED, UNKNOWN.
+  status            AssetStatus  @default(ACTIVE)
+  /// Metadata specific to asset type — e.g., policy number for insurance, VIN for vehicle.
+  metadata          Json         @default("{}")
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+  deletedAt         DateTime?    @map("deleted_at")
+
+  principal         Principal    @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  documents         AssetDocument[]
+  beneficiaries     Beneficiary[]
+
+  @@index([principalId, category])
+  @@index([type])
+  @@map("assets")
+}
+
+enum AssetCategory {
+  BANKING
+  INVESTMENT
+  RETIREMENT
+  REAL_ESTATE
+  INSURANCE
+  BUSINESS
+  PHYSICAL
+  DIGITAL
+  CRYPTO
+  DEBT
+  OTHER
+}
+
+enum AssetType {
+  // Banking
+  CHECKING
+  SAVINGS
+  CERTIFICATE_OF_DEPOSIT
+  MONEY_MARKET
+  // Investment
+  BROKERAGE
+  MUTUAL_FUND
+  STOCKS_DIRECT
+  BONDS
+  // Retirement — US
+  IRA_TRADITIONAL
+  IRA_ROTH
+  K401
+  K403B
+  K457
+  SEP_IRA
+  SIMPLE_IRA
+  PENSION_US
+  // Retirement — Canada
+  RRSP
+  RRIF
+  TFSA
+  RESP
+  LIRA
+  LIF
+  RDSP
+  PENSION_CA
+  CPP
+  OAS
+  // Real estate
+  PRIMARY_RESIDENCE
+  SECONDARY_RESIDENCE
+  RENTAL_PROPERTY
+  LAND
+  TIMESHARE
+  // Insurance
+  LIFE_INSURANCE_TERM
+  LIFE_INSURANCE_WHOLE
+  LIFE_INSURANCE_UNIVERSAL
+  ANNUITY
+  DISABILITY_INSURANCE
+  LTC_INSURANCE
+  // Business
+  SOLE_PROPRIETORSHIP
+  PARTNERSHIP_INTEREST
+  LLC_INTEREST
+  CORP_SHARES_PRIVATE
+  // Physical
+  VEHICLE
+  JEWELRY
+  ART
+  COLLECTIBLES
+  FIREARM
+  SAFE_DEPOSIT_BOX
+  // Digital
+  DOMAIN_NAME
+  ONLINE_ACCOUNT
+  LOYALTY_PROGRAM
+  INTELLECTUAL_PROPERTY
+  // Crypto
+  CRYPTO_CUSTODIAL
+  CRYPTO_SELF_CUSTODY
+  // Debt
+  MORTGAGE
+  AUTO_LOAN
+  STUDENT_LOAN
+  CREDIT_CARD
+  PERSONAL_LOAN
+  // Fallback
+  OTHER_ASSET
+}
+
+enum AssetStatus {
+  ACTIVE
+  CLOSED
+  TRANSFERRED
+  UNKNOWN
+}
+
+/// Documents — wills, trusts, deeds, statements. Encrypted at rest in S3 via KMS.
+model Document {
+  id            String       @id @default(uuid()) @db.Uuid
+  principalId   String       @map("principal_id") @db.Uuid
+  category      DocumentCategory
+  title         String
+  /// S3 object key. The file itself is SSE-KMS encrypted server-side AND envelope-encrypted client-side.
+  s3Key         String       @unique @map("s3_key")
+  /// SHA-256 of plaintext — used for integrity checks and deduplication.
+  contentSha256 String       @map("content_sha256") @db.Char(64)
+  sizeBytes     BigInt       @map("size_bytes")
+  mimeType      String       @map("mime_type")
+  /// OCR-extracted text (may be null for non-text formats). Stored encrypted.
+  extractedTextEncrypted String? @map("extracted_text_encrypted")
+  /// Auto-extracted structured metadata (dates, parties, etc.). Nullable.
+  extractedMetadata Json?    @map("extracted_metadata")
+  /// Signing / effective date if known.
+  documentDate  DateTime?    @map("document_date") @db.Date
+  /// User-provided tags for filtering.
+  tags          String[]     @default([])
+  uploadedById  String       @map("uploaded_by_id") @db.Uuid
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  deletedAt     DateTime?    @map("deleted_at")
+
+  principal     Principal    @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  assetDocuments AssetDocument[]
+
+  @@index([principalId, category])
+  @@index([contentSha256])
+  @@map("documents")
+}
+
+enum DocumentCategory {
+  WILL
+  TRUST
+  POWER_OF_ATTORNEY
+  HEALTHCARE_DIRECTIVE
+  LIVING_WILL
+  DEED
+  TITLE
+  ACCOUNT_STATEMENT
+  INSURANCE_POLICY
+  TAX_RETURN
+  BIRTH_CERTIFICATE
+  MARRIAGE_CERTIFICATE
+  DIVORCE_DECREE
+  DEATH_CERTIFICATE
+  PASSPORT
+  DRIVERS_LICENSE
+  MILITARY_RECORD
+  NATURALIZATION
+  BENEFICIARY_FORM
+  PRENUP
+  CUSTODY_AGREEMENT
+  LETTER_OF_WISHES
+  PHOTO_ID
+  OTHER_LEGAL
+  OTHER_FINANCIAL
+  OTHER
+}
+
+/// Join table for Asset ↔ Document (e.g., an account statement links to the brokerage account).
+model AssetDocument {
+  assetId    String   @map("asset_id") @db.Uuid
+  documentId String   @map("document_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  asset      Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@id([assetId, documentId])
+  @@map("asset_documents")
+}
+
+/// Beneficiary links an Asset to a Person with a share (%) and conditions.
+/// The conflict-detection engine reads this table alongside will/trust documents.
+model Beneficiary {
+  id             String   @id @default(uuid()) @db.Uuid
+  principalId    String   @map("principal_id") @db.Uuid
+  assetId        String   @map("asset_id") @db.Uuid
+  personId       String   @map("person_id") @db.Uuid
+  /// Primary vs. contingent beneficiary.
+  designation    BeneficiaryDesignation @default(PRIMARY)
+  /// Share as basis points (10000 = 100.00%). Integer avoids float drift.
+  shareBps       Int      @map("share_bps")
+  /// Free-form conditions ("upon reaching 25", "if predeceased by spouse").
+  conditions     String?
+  /// If this came from a specific document (e.g., policy beneficiary form).
+  sourceDocumentId String? @map("source_document_id") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  principal      Principal @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  asset          Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  person         Person   @relation(fields: [personId], references: [id])
+
+  @@index([assetId])
+  @@index([principalId])
+  @@map("beneficiaries")
+}
+
+enum BeneficiaryDesignation {
+  PRIMARY
+  CONTINGENT
+  TERTIARY
+}
+
+// ============================================================================
+// TRUSTED CONTACTS & DEAD-MAN'S-SWITCH
+// ============================================================================
+
+model TrustedContact {
+  id              String              @id @default(uuid()) @db.Uuid
+  principalId     String              @map("principal_id") @db.Uuid
+  personId        String              @unique @map("person_id") @db.Uuid
+  accessTier      AccessTier
+  /// Trigger conditions to unlock access (e.g., dead-man's-switch expiry).
+  triggerType     TriggerType         @default(CHECK_IN_MISSED)
+  /// Cool-down period in days before access unlocks after trigger.
+  waitingPeriodDays Int               @default(7) @map("waiting_period_days")
+  /// Notified immediately on trigger; actual access gated by waitingPeriodDays.
+  notifyOnTrigger Boolean             @default(true) @map("notify_on_trigger")
+  /// Private note to the trusted contact — shown only on unlock.
+  letterToContactEncrypted String?    @map("letter_to_contact_encrypted")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
+  deletedAt       DateTime?           @map("deleted_at")
+
+  principal       Principal           @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  person          Person              @relation(fields: [personId], references: [id])
+  accessGrants    TrustedContactGrant[]
+
+  @@index([principalId])
+  @@map("trusted_contacts")
+}
+
+enum AccessTier {
+  /// Can see that documents exist, not their contents.
+  INDEX_ONLY
+  /// Can view non-sensitive assets and documents.
+  VIEW_GENERAL
+  /// Full executor-level access on unlock.
+  EXECUTOR
+  /// Emergency access — can initiate the unlock flow.
+  EMERGENCY
+}
+
+enum TriggerType {
+  CHECK_IN_MISSED       // dead-man's-switch
+  DEATH_CERTIFIED       // death certificate uploaded + verified
+  MANUAL_UNLOCK         // principal manually grants
+  EMERGENCY_REQUESTED   // contact requests emergency unlock
+}
+
+/// Current state of access unlock — separate from TrustedContact so we have history.
+model TrustedContactGrant {
+  id                String   @id @default(uuid()) @db.Uuid
+  trustedContactId  String   @map("trusted_contact_id") @db.Uuid
+  status            GrantStatus @default(PENDING)
+  triggeredAt       DateTime? @map("triggered_at")
+  unlocksAt         DateTime? @map("unlocks_at")
+  revokedAt         DateTime? @map("revoked_at")
+  reason            String?
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  trustedContact    TrustedContact @relation(fields: [trustedContactId], references: [id], onDelete: Cascade)
+
+  @@index([trustedContactId])
+  @@index([status])
+  @@map("trusted_contact_grants")
+}
+
+enum GrantStatus {
+  PENDING
+  TRIGGERED
+  UNLOCKED
+  REVOKED
+  EXPIRED
+}
+
+// ============================================================================
+// INSTRUCTIONS — letters of wishes, funeral, pet care, digital disposition
+// ============================================================================
+
+model Instruction {
+  id          String          @id @default(uuid()) @db.Uuid
+  principalId String          @map("principal_id") @db.Uuid
+  category    InstructionCategory
+  title       String
+  bodyEncrypted String        @map("body_encrypted")
+  /// Optional recipient — a specific Person this message is meant for.
+  recipientPersonId String?   @map("recipient_person_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  deletedAt   DateTime?       @map("deleted_at")
+
+  principal   Principal       @relation(fields: [principalId], references: [id], onDelete: Cascade)
+
+  @@index([principalId, category])
+  @@map("instructions")
+}
+
+enum InstructionCategory {
+  LETTER_OF_WISHES
+  FUNERAL_PREFERENCES
+  ORGAN_DONATION
+  PET_CARE
+  DIGITAL_ACCOUNT_DISPOSITION
+  PERSONAL_MESSAGE
+  OTHER
+}
+
+// ============================================================================
+// REGISTRY (Phase 3) — opt-in "findable" layer
+// ============================================================================
+
+model RegistryEntry {
+  id              String              @id @default(uuid()) @db.Uuid
+  principalId     String              @unique @map("principal_id") @db.Uuid
+  /// Verification completed via Stripe Identity / Persona / Onfido.
+  identityVerifiedAt DateTime?        @map("identity_verified_at")
+  identityProvider String?            @map("identity_provider")
+  /// Name variations the principal wants registered for matching.
+  nameVariations  Json                @default("[]") @map("name_variations")
+  /// Former addresses / jurisdictions — helps institutions match legacy records.
+  addressHistory  Json                @default("[]") @map("address_history")
+  visibility      RegistryVisibility  @default(INSTITUTIONS_VERIFIED_ONLY)
+  optedInAt       DateTime            @default(now()) @map("opted_in_at")
+  optedOutAt      DateTime?           @map("opted_out_at")
+
+  principal       Principal           @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  queries         RegistryQuery[]
+
+  @@map("registry_entries")
+}
+
+enum RegistryVisibility {
+  INSTITUTIONS_VERIFIED_ONLY
+  ATTORNEYS_AND_INSTITUTIONS
+  /// Requires the searcher to prove family relationship.
+  FAMILY_WITH_VERIFICATION
+  PRIVATE  // registered but not discoverable — used as a placeholder
+}
+
+/// Audit of every search hit against the registry. Principal is always notified.
+model RegistryQuery {
+  id              String   @id @default(uuid()) @db.Uuid
+  registryEntryId String   @map("registry_entry_id") @db.Uuid
+  /// The institution/user that queried.
+  queriedByTenantId String @map("queried_by_tenant_id") @db.Uuid
+  /// Query parameters (name, DOB range, etc.) — stored for auditability.
+  queryParams     Json     @map("query_params")
+  matchConfidence Decimal  @map("match_confidence") @db.Decimal(5, 4)
+  /// Masked response sent back (never raw PII).
+  maskedResponse  Json     @map("masked_response")
+  contactRequested Boolean @default(false) @map("contact_requested")
+  principalNotifiedAt DateTime? @map("principal_notified_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  registryEntry   RegistryEntry @relation(fields: [registryEntryId], references: [id], onDelete: Cascade)
+
+  @@index([registryEntryId])
+  @@index([queriedByTenantId])
+  @@map("registry_queries")
+}
+
+// ============================================================================
+// HEIRTRACE (Phase 2) — B2B case management
+// ============================================================================
+
+model HeirSearchCase {
+  id              String       @id @default(uuid()) @db.Uuid
+  tenantId        String       @map("tenant_id") @db.Uuid
+  /// Case references a deceased/missing Principal (may be created fresh, no owner User).
+  principalId     String       @unique @map("principal_id") @db.Uuid
+  caseNumber      String       @map("case_number")
+  status          CaseStatus   @default(INTAKE)
+  priority        CasePriority @default(NORMAL)
+  /// Retainer amount in cents for billing tracking.
+  retainerCents   BigInt?      @map("retainer_cents")
+  openedAt        DateTime     @default(now()) @map("opened_at")
+  closedAt        DateTime?    @map("closed_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id])
+  principal       Principal    @relation(fields: [principalId], references: [id])
+  searches        UnclaimedAssetSearch[]
+
+  @@unique([tenantId, caseNumber])
+  @@index([tenantId, status])
+  @@map("heir_search_cases")
+}
+
+enum CaseStatus {
+  INTAKE
+  ACTIVE
+  HEIRS_IDENTIFIED
+  ASSETS_LOCATED
+  CLAIMS_FILED
+  DISTRIBUTED
+  CLOSED
+  ARCHIVED
+}
+
+enum CasePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+model UnclaimedAssetSearch {
+  id            String     @id @default(uuid()) @db.Uuid
+  caseId        String     @map("case_id") @db.Uuid
+  source        String     // "missingmoney", "state-NY", "bank-of-canada", "fdic", etc.
+  queryParams   Json       @map("query_params")
+  resultsCount  Int        @default(0) @map("results_count")
+  resultsJson   Json?      @map("results_json")
+  ranAt         DateTime   @default(now()) @map("ran_at")
+
+  case          HeirSearchCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("unclaimed_asset_searches")
+}
+
+// ============================================================================
+// AUDIT LOG — immutable, append-only. Enforced via Postgres trigger in migration.
+// ============================================================================
+
+model AuditLog {
+  id          BigInt       @id @default(autoincrement())
+  /// Tenant scope (nullable only for platform-level events).
+  tenantId    String?      @map("tenant_id") @db.Uuid
+  /// Actor who performed the action (nullable for system events).
+  userId      String?      @map("user_id") @db.Uuid
+  /// Short machine-readable event name, e.g., "asset.created", "document.downloaded".
+  event       String       @db.VarChar(128)
+  /// Target resource type (Asset, Document, ...).
+  resourceType String?     @map("resource_type")
+  resourceId  String?      @map("resource_id")
+  /// Before state (redacted at app layer; encrypted fields are never logged raw).
+  beforeJson  Json?        @map("before_json")
+  afterJson   Json?        @map("after_json")
+  ipAddress   String?      @map("ip_address") @db.Inet
+  userAgent   String?      @map("user_agent")
+  /// Request ID for cross-service correlation.
+  requestId   String?      @map("request_id")
+  occurredAt  DateTime     @default(now()) @map("occurred_at")
+
+  tenant      Tenant?      @relation(fields: [tenantId], references: [id])
+  user        User?        @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, occurredAt])
+  @@index([userId, occurredAt])
+  @@index([resourceType, resourceId])
+  @@index([event])
+  @@map("audit_logs")
+}
