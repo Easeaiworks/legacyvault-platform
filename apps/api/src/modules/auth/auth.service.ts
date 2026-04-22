@@ -163,6 +163,24 @@ export class AuthService {
     });
   }
 
+  /**
+   * Demo login — issues a token for the seeded demo user. Only invoked by the
+   * /auth/demo/login endpoint, which itself is gated on DEMO_MODE=true in the
+   * controller. This keeps real production environments from ever exposing
+   * demo credentials.
+   */
+  async demoLogin(): Promise<{ token: string; user: { id: string; email: string } }> {
+    const user = await this.prisma.user.findFirst({
+      where: { email: 'demo@legacyvault.app' },
+      include: { roles: true },
+    });
+    if (!user) {
+      throw new Error('Demo user not seeded. Run db:seed:demo before enabling DEMO_MODE.');
+    }
+    const token = await this.issueToken(user.id, user.tenantId, user.roles.map((r) => r.role));
+    return { token, user: { id: user.id, email: user.email } };
+  }
+
   // ---- helpers ----
 
   private buildState(): string {

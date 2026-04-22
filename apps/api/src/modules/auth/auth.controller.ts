@@ -22,11 +22,6 @@ export class AuthController {
     private readonly config: ConfigService,
   ) {}
 
-  /**
-   * Kicks off a sign-in. Body: { email: string }.
-   * - WorkOS mode → returns { redirectUrl }
-   * - Local dev   → returns { devToken }
-   */
   @Public()
   @Post('login/start')
   @Audit({ event: 'auth.login.start' })
@@ -35,10 +30,6 @@ export class AuthController {
     return this.auth.startLogin(email);
   }
 
-  /**
-   * OAuth/AuthKit callback. Receives ?code= from the provider, exchanges it,
-   * sets an HttpOnly session cookie, and redirects to /app.
-   */
   @Public()
   @Get('callback')
   @Audit({ event: 'auth.callback' })
@@ -58,10 +49,26 @@ export class AuthController {
         secure,
         sameSite: 'lax',
         path: '/',
-        maxAge: 60 * 60, // 1h; refresh flow extends it.
+        maxAge: 60 * 60,
       })
       .status(HttpStatus.FOUND)
       .redirect(`${appUrl}/app`);
+  }
+
+  /**
+   * Demo auto-login endpoint. Only usable when DEMO_MODE=true; unconditionally
+   * disabled in production unless the operator explicitly opts in. Returns a
+   * token for the seeded demo user so anyone visiting /demo on the web app
+   * lands in a fully-populated vault.
+   */
+  @Public()
+  @Post('demo/login')
+  @Audit({ event: 'auth.demo.login' })
+  async demoLogin() {
+    if (this.config.get('DEMO_MODE') !== 'true') {
+      throw new UnauthorizedException('Demo mode is disabled on this environment.');
+    }
+    return this.auth.demoLogin();
   }
 
   @Get('me')

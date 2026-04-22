@@ -33,6 +33,12 @@ const EnvSchema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   TRUST_PROXY: z.coerce.boolean().default(false),
+
+  // Set to 'true' ONLY on the hosted demo environment. Enables /auth/demo/login
+  // and the top-of-page DEMO banner. The prod safety rails below relax the
+  // AUTH_PROVIDER=local check when DEMO_MODE=true, because the demo does not
+  // require WorkOS.
+  DEMO_MODE: z.enum(['true', 'false']).default('false'),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
@@ -45,14 +51,26 @@ export function validateEnv(raw: Record<string, unknown>): Env {
       .join('\n');
     throw new Error(`Invalid environment variables:\n${errors}`);
   }
-  // Enforce prod safety rails.
-  if (parsed.data.NODE_ENV === 'production') {
-    if (parsed.data.AUTH_PROVIDER === 'local') {
-      throw new Error('AUTH_PROVIDER=local is forbidden in production.');
+  const env = parsed.data;
+
+  // Production safety rails.
+  if (env.NODE_ENV === 'production') {
+    const isDemoDeployment = env.DEMO_MODE === 'true';
+
+    if (env.AUTH_PROVIDER === 'local' && !isDemoDeployment) {
+      throw new Error(
+        'AUTH_PROVIDER=local is forbidden in production. Set DEMO_MODE=true to allow it on the hosted demo.',
+      );
     }
-    if (parsed.data.JWT_SECRET.startsWith('CHANGE_ME')) {
+    if (env.JWT_SECRET.startsWith('CHANGE_ME')) {
       throw new Error('JWT_SECRET still contains placeholder value in production.');
     }
+    if (isDemoDeployment) {
+      // Log loudly so the ops dashboard shows this is a demo, not a real prod.
+      console.warn(
+        '[env] DEMO_MODE=true — /auth/demo/login is exposed. This environment is NOT for real users.',
+      );
+    }
   }
-  return parsed.data;
+  return env;
 }
