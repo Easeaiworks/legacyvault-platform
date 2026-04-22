@@ -7,10 +7,17 @@ import { validateEnv } from './common/config/env.validation';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
 import { AuditModule } from './common/audit/audit.module';
+import { StorageModule } from './common/storage/storage.module';
 import { AuditInterceptor } from './common/audit/audit.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { AssetsModule } from './modules/assets/assets.module';
+import { PersonsModule } from './modules/persons/persons.module';
+import { DocumentsModule } from './modules/documents/documents.module';
+import { BeneficiariesModule } from './modules/beneficiaries/beneficiaries.module';
+import { TrustedContactsModule } from './modules/trusted-contacts/trusted-contacts.module';
+import { InstructionsModule } from './modules/instructions/instructions.module';
+import { ExportModule } from './modules/export/export.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -27,7 +34,6 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
           process.env.NODE_ENV === 'development'
             ? { target: 'pino-pretty', options: { singleLine: true } }
             : undefined,
-        // Never log sensitive headers or PII.
         redact: [
           'req.headers.authorization',
           'req.headers.cookie',
@@ -49,9 +55,16 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     PrismaModule,
     CryptoModule,
     AuditModule,
+    StorageModule,
     AuthModule,
     HealthModule,
     AssetsModule,
+    PersonsModule,
+    DocumentsModule,
+    BeneficiariesModule,
+    TrustedContactsModule,
+    InstructionsModule,
+    ExportModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
