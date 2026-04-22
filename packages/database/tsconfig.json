@@ -3,8 +3,15 @@
   "compilerOptions": {
     "module": "CommonJS",
     "moduleResolution": "Node",
+    "target": "ES2022",
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "composite": false,
+    "isolatedModules": false
   },
-  "include": ["src/**/*", "prisma/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "prisma"]
 }
