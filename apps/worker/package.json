@@ -1,0 +1,24 @@
+{
+  "name": "@legacyvault/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "run-once": "tsx src/main.ts --once",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist node_modules/.cache"
+  },
+  "dependencies": {
+    "@legacyvault/database": "*",
+    "pino": "^9.1.0",
+    "pino-pretty": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.10.0",
+    "typescript": "^5.4.5"
+  }
+}

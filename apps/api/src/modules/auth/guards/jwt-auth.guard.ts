@@ -9,10 +9,9 @@ import { JwtService } from '@nestjs/jwt';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
- * Global guard — rejects requests without a valid bearer token.
- * Routes decorated with @Public() bypass this guard.
- *
- * TODO: in WorkOS/Clerk mode, verify against their JWKS instead of our JWT secret.
+ * Global guard — accepts either:
+ *   - Authorization: Bearer <jwt> header (API / mobile clients, local dev)
+ *   - lv_session HttpOnly cookie (web app after WorkOS callback)
  */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
@@ -30,9 +29,11 @@ export class JwtAuthGuard implements CanActivate {
 
     const req = ctx.switchToHttp().getRequest();
     const header: string | undefined = req.headers?.authorization;
-    if (!header?.startsWith('Bearer ')) throw new UnauthorizedException();
+    const cookieToken: string | undefined = req.cookies?.lv_session;
 
-    const token = header.slice(7);
+    const token = header?.startsWith('Bearer ') ? header.slice(7) : cookieToken;
+    if (!token) throw new UnauthorizedException();
+
     try {
       const payload = await this.jwt.verifyAsync<{
         sub: string;

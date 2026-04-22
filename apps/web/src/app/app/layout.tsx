@@ -13,6 +13,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </Link>
           <nav className="flex flex-col gap-1 text-sm">
             <NavLink href="/app">Overview</NavLink>
+            <NavLink href="/app/registry">Registry</NavLink>
             <NavLink href="/app/assets">Assets</NavLink>
             <NavLink href="/app/people">People</NavLink>
             <NavLink href="/app/documents">Documents</NavLink>

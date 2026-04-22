@@ -1,0 +1,27 @@
+name: Worker cron
+
+# Runs the scheduled worker once per hour. For prod we'd run it continuously
+# on ECS/Fargate, but GitHub Actions makes an adequate cron for dev + staging.
+on:
+  schedule:
+    - cron: '7 * * * *'   # 7 minutes past the hour
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  run-once:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LOG_LEVEL: info
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate --schema=packages/database/prisma/schema.prisma
+      - run: npm run run-once --workspace=@legacyvault/worker

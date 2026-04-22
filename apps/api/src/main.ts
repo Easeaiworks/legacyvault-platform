@@ -4,6 +4,7 @@ import { FastifyAdapter, NestFastifyApplication } from '@nestjs/platform-fastify
 import { ValidationPipe, Logger } from '@nestjs/common';
 import helmet from '@fastify/helmet';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
@@ -33,6 +34,12 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
+
+  // Cookie parser for the HttpOnly session cookie set by the auth callback.
+  await app.register(cookie, {
+    secret: process.env.JWT_SECRET,
+    parseOptions: {},
   });
 
   app.useGlobalPipes(

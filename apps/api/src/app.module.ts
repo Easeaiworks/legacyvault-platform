@@ -18,6 +18,7 @@ import { BeneficiariesModule } from './modules/beneficiaries/beneficiaries.modul
 import { TrustedContactsModule } from './modules/trusted-contacts/trusted-contacts.module';
 import { InstructionsModule } from './modules/instructions/instructions.module';
 import { ExportModule } from './modules/export/export.module';
+import { RegistryModule } from './modules/registry/registry.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -65,6 +66,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     TrustedContactsModule,
     InstructionsModule,
     ExportModule,
+    RegistryModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
