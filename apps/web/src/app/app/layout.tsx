@@ -14,11 +14,11 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <nav className="flex flex-col gap-1 text-sm">
             <NavLink href="/app">Overview</NavLink>
             <NavLink href="/app/assets">Assets</NavLink>
+            <NavLink href="/app/people">People</NavLink>
             <NavLink href="/app/documents">Documents</NavLink>
             <NavLink href="/app/beneficiaries">Beneficiaries</NavLink>
             <NavLink href="/app/contacts">Trusted contacts</NavLink>
             <NavLink href="/app/instructions">Letters &amp; wishes</NavLink>
-            <NavLink href="/app/settings">Settings</NavLink>
           </nav>
         </aside>
         <main className="ml-60 p-10">{children}</main>
