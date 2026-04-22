@@ -81,5 +81,3 @@ legacyvault-platform/
   The Registry must be free to consumers; monetize the planning tools instead.
 - **SOC 2 Type I is a 6-month runway.** Start engaging auditors by Session 6.
 - **Data residency is a feature, not a migration.** Canadian user data stays in ca-central-1.
-
-<!-- deploy trigger: 1776893179 -->

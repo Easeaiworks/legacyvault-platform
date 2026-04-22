@@ -1,9 +1,17 @@
-// Thin fetch wrapper — attaches bearer token from localStorage (dev) or cookie (prod via middleware).
+// Thin fetch wrapper — attaches bearer token from localStorage.
+//
+// On Vercel the API routes live inside this same Next.js app under /api,
+// so NEXT_PUBLIC_API_URL is "/api" by default. For local dev against the
+// legacy NestJS stack you can set NEXT_PUBLIC_API_URL=http://localhost:4000/v1.
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '/api';
 
 class ApiError extends Error {
-  constructor(public readonly status: number, message: string, public readonly detail?: string) {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly detail?: string,
+  ) {
     super(message);
   }
 }
@@ -25,8 +33,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     let detail: string | undefined;
     try {
-      const problem = (await res.json()) as { title?: string; detail?: string };
-      detail = problem.detail ?? problem.title;
+      const problem = (await res.json()) as { title?: string; detail?: string; error?: string };
+      detail = problem.detail ?? problem.title ?? problem.error;
     } catch {
       /* ignore */
     }

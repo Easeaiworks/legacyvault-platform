@@ -1,12 +1,19 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  experimental: {
-    // Keep builds in the monorepo tree clean.
-    outputFileTracingRoot: undefined,
-  },
-  // Security headers — applied to all routes.
+  // Monorepo awareness for Vercel — trace files from the repo root so
+  // @legacyvault/database and @legacyvault/shared resolve correctly.
+  outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Prisma ships platform-specific native binaries — mark them external so
+  // Next.js doesn't try to bundle them into the server function.
+  serverExternalPackages: ['@prisma/client', 'prisma', 'pdfkit'],
   async headers() {
     return [
       {
@@ -24,7 +31,7 @@ const nextConfig = {
       },
     ];
   },
-  transpilePackages: ['@legacyvault/shared'],
+  transpilePackages: ['@legacyvault/shared', '@legacyvault/database'],
 };
 
 export default nextConfig;

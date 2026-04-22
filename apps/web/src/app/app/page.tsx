@@ -27,7 +27,8 @@ export default function AppOverview() {
 
   async function downloadBinder() {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch((process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/v1') + '/export/estate-binder.pdf', {
+    const base = process.env.NEXT_PUBLIC_API_URL ?? '/api';
+    const res = await fetch(`${base}/export/estate-binder.pdf`, {
       headers: token ? { authorization: `Bearer ${token}` } : {},
     });
     if (!res.ok) return alert('Failed to generate PDF');
