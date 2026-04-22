@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /app/
+Disallow: /demo
+Disallow: /api/
+Allow: /
+
+# Demo environment — discourage indexing while the lawyer-review copy is live.
