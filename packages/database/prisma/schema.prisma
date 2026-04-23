@@ -204,6 +204,7 @@ model Principal {
   heirSearchCase HeirSearchCase?
   messages      Message[]
   digitalAssets DigitalAsset[]
+  funeralWishes FuneralWishes?
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -986,4 +987,76 @@ model DigitalAsset {
   @@index([tenantId, principalId, kind])
   @@index([principalId, priorityOrder])
   @@map("digital_assets")
+}
+
+// ============================================================================
+// FUNERAL & EVENT WISHES — one guided document per principal covering service
+// type, music, readings, attire, gathering details, obituary draft, and
+// executor instructions. Spares the family from guessing.
+// ============================================================================
+
+enum FuneralServiceType {
+  BURIAL
+  CREMATION
+  GREEN_BURIAL
+  NATURAL_ORGANIC_REDUCTION
+  BODY_DONATION
+  NO_SERVICE
+  OTHER
+}
+
+enum FuneralReligiousTradition {
+  SECULAR
+  CHRISTIAN
+  CATHOLIC
+  JEWISH
+  MUSLIM
+  HINDU
+  BUDDHIST
+  SIKH
+  INTERFAITH
+  OTHER
+}
+
+model FuneralWishes {
+  id                       String                     @id @default(uuid()) @db.Uuid
+  tenantId                 String                     @map("tenant_id") @db.Uuid
+  principalId              String                     @unique @map("principal_id") @db.Uuid
+
+  // Service preferences
+  serviceType              FuneralServiceType?        @map("service_type")
+  serviceNotes             String?                    @map("service_notes")
+  locationPreference       String?                    @map("location_preference")
+  religiousTradition       FuneralReligiousTradition? @map("religious_tradition")
+  religiousOrSecularNotes  String?                    @map("religious_or_secular_notes")
+  officiantPreference      String?                    @map("officiant_preference")
+
+  /// [{title, artist, when: "processional" | "during" | "recessional" | "reception"}]
+  musicSelections          Json                       @default("[]") @map("music_selections")
+  /// [{text, source, readerPreferenceName?}]
+  readingsSelections       Json                       @default("[]") @map("readings_selections")
+
+  // Attire & gathering
+  attireNotes              String?                    @map("attire_notes")
+  gatheringNotes           String?                    @map("gathering_notes")
+  cateringOrDietaryNotes   String?                    @map("catering_or_dietary_notes")
+
+  // Obituary — plaintext is optional; encrypted variant for users who want it private.
+  obituaryDraft            String?                    @map("obituary_draft")
+  obituaryDraftEncrypted   String?                    @map("obituary_draft_encrypted")
+
+  // Who handles what
+  executorInstructions     String?                    @map("executor_instructions")
+  financialResponsibility  String?                    @map("financial_responsibility")
+
+  /// Progress indicator for the guided form (0-100).
+  completionPercentage     Int                        @default(0) @map("completion_percentage")
+  createdAt                DateTime                   @default(now()) @map("created_at")
+  updatedAt                DateTime                   @updatedAt @map("updated_at")
+  deletedAt                DateTime?                  @map("deleted_at")
+
+  principal                Principal                  @relation(fields: [principalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("funeral_wishes")
 }
