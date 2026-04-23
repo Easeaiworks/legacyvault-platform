@@ -20,6 +20,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <NavLink href="/app/beneficiaries">Beneficiaries</NavLink>
             <NavLink href="/app/contacts">Trusted contacts</NavLink>
             <NavLink href="/app/instructions">Letters &amp; wishes</NavLink>
+            <div className="mt-6 mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
+              Legacy
+            </div>
+            <NavLink href="/app/messages">Messages</NavLink>
           </nav>
         </aside>
         <main className="ml-60 p-10">{children}</main>
