@@ -184,7 +184,7 @@ function StatusBadge({ status }: { status: MessageDetail['status'] }) {
     REVOKED: { label: 'Revoked', className: 'bg-red-100 text-red-800' },
     ARCHIVED: { label: 'Archived', className: 'bg-ink-100 text-ink-500' },
   };
-  const c = config[status];
+  const c = config[status] ?? { label: status, className: 'bg-ink-100 text-ink-700' };
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.className}`}>{c.label}</span>
   );
@@ -220,7 +220,7 @@ function formatTrigger(t: {
         GRIEF_FIRST_YEAR: 'In their first year of grieving',
         CUSTOM: 'On a life event',
       };
-      return t.eventKind ? events[t.eventKind] ?? 'on a life event' : 'on a life event';
+      return t.eventKind ? (events[t.eventKind] ?? 'on a life event') : 'on a life event';
     }
     case 'DEATH_PLUS':
       return `${t.daysAfterDeath ?? 90} days after my verified passing`;
@@ -229,8 +229,8 @@ function formatTrigger(t: {
   }
 }
 
-function suffix(n: number) {
-  const s = ['th', 'st', 'nd', 'rd'];
+function suffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'] as const;
   const v = n % 100;
-  return s[(v - 20) % 10] ?? s[v] ?? s[0];
+  return s[(v - 20) % 10] ?? s[v] ?? s[0] ?? 'th';
 }

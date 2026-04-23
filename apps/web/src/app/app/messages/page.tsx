@@ -191,17 +191,18 @@ function StatusBadge({ status }: { status: Message['status'] }) {
     REVOKED: { label: 'Revoked', className: 'bg-red-100 text-red-800' },
     ARCHIVED: { label: 'Archived', className: 'bg-ink-100 text-ink-500' },
   };
-  const c = config[status];
+  const c = config[status] ?? { label: status, className: 'bg-ink-100 text-ink-700' };
   return (
     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${c.className}`}>{c.label}</span>
   );
 }
 
-function formatList(items: string[]) {
+function formatList(items: string[]): string {
   if (items.length === 0) return '';
-  if (items.length === 1) return items[0];
-  if (items.length === 2) return `${items[0]} and ${items[1]}`;
-  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+  if (items.length === 1) return items[0] ?? '';
+  if (items.length === 2) return `${items[0] ?? ''} and ${items[1] ?? ''}`;
+  const last = items[items.length - 1] ?? '';
+  return `${items.slice(0, -1).join(', ')}, and ${last}`;
 }
 
 function formatTrigger(t: Trigger): string {
@@ -223,7 +224,7 @@ function formatTrigger(t: Trigger): string {
         GRIEF_FIRST_YEAR: 'in their first year of grieving',
         CUSTOM: 'on a life event',
       };
-      return t.eventKind ? events[t.eventKind] ?? 'on a life event' : 'on a life event';
+      return t.eventKind ? (events[t.eventKind] ?? 'on a life event') : 'on a life event';
     }
     case 'DEATH_PLUS':
       return `${t.daysAfterDeath ?? 90} days after I'm gone`;
@@ -233,7 +234,8 @@ function formatTrigger(t: Trigger): string {
 }
 
 function ordinal(n: number): string {
-  const s = ['th', 'st', 'nd', 'rd'];
+  const s = ['th', 'st', 'nd', 'rd'] as const;
   const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+  const suffix = s[(v - 20) % 10] ?? s[v] ?? s[0] ?? 'th';
+  return `${n}${suffix}`;
 }

@@ -64,11 +64,13 @@ export default function NewMessagePage() {
 
   function next() {
     const i = STEP_ORDER.indexOf(step);
-    if (i < STEP_ORDER.length - 1) setStep(STEP_ORDER[i + 1]!);
+    const nextStep = STEP_ORDER[i + 1];
+    if (nextStep) setStep(nextStep);
   }
   function back() {
     const i = STEP_ORDER.indexOf(step);
-    if (i > 0) setStep(STEP_ORDER[i - 1]!);
+    const prevStep = STEP_ORDER[i - 1];
+    if (prevStep) setStep(prevStep);
   }
 
   async function ensureDraft(): Promise<string> {
@@ -840,9 +842,9 @@ function triggerSummary(t: TriggerState): string {
   return '—';
 }
 
-function suffix(n: number) {
-  const s = ['th', 'st', 'nd', 'rd'];
+function suffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'] as const;
   const v = n % 100;
-  return s[(v - 20) % 10] ?? s[v] ?? s[0];
+  return s[(v - 20) % 10] ?? s[v] ?? s[0] ?? 'th';
 }
 
