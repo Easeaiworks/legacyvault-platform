@@ -203,6 +203,7 @@ model Principal {
   registryEntry RegistryEntry?
   heirSearchCase HeirSearchCase?
   messages      Message[]
+  digitalAssets DigitalAsset[]
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -239,6 +240,7 @@ model Person {
   beneficiaryOf   Beneficiary[]
   trustedContact  TrustedContact?
   messageRecipients MessageRecipient[]
+  digitalAssetsInherited DigitalAsset[]
 
   @@index([principalId])
   @@index([lastName, firstName])
@@ -918,4 +920,70 @@ model MessagePrompt {
 
   @@index([category, isSystem])
   @@map("message_prompts")
+}
+
+// ============================================================================
+// DIGITAL GOODBYE — structured list of digital-life assets to wind down,
+// transfer, or preserve upon the principal's death or incapacity.
+//
+// Categories cover accounts, subscriptions, devices, pets, household quirks.
+//
+// IMPORTANT: this table deliberately does NOT store passwords. It stores a
+// passwordHint that points to where the password lives (1Password, Bitwarden,
+// Apple Keychain, etc.). This keeps LegacyVault out of the password-custody
+// threat model and simplifies SOC 2 scope.
+// ============================================================================
+
+enum DigitalAssetKind {
+  ACCOUNT_LOGIN           // a website or service login
+  SUBSCRIPTION            // a recurring charge to cancel or transfer
+  DEVICE                  // phone, laptop, tablet, smart-home device
+  DOMAIN_NAME             // domain registrations to transfer or release
+  CRYPTO_WALLET           // wallet descriptor — NOT the seed phrase
+  SOCIAL_MEDIA            // separate from ACCOUNT because shutdown prefs differ
+  PET_CARE_INSTRUCTIONS   // vet contact, medication, feeding quirks
+  HOUSEHOLD_INSTRUCTIONS  // keys, alarm codes, thermostat, well shutoff, etc.
+  OTHER
+}
+
+enum DigitalAssetAction {
+  CANCEL        // terminate the account/subscription
+  TRANSFER      // transfer to someone (see preferredHeirId)
+  MEMORIALIZE   // e.g., Facebook memorial profile
+  DELETE        // fully delete all data
+  PRESERVE      // keep as-is for family access
+  UNCERTAIN     // principal wants this decided later
+}
+
+model DigitalAsset {
+  id                     String              @id @default(uuid()) @db.Uuid
+  tenantId               String              @map("tenant_id") @db.Uuid
+  principalId            String              @map("principal_id") @db.Uuid
+  kind                   DigitalAssetKind
+  /// User-facing label, e.g., "Netflix family plan".
+  label                  String              @db.VarChar(255)
+  /// Provider/vendor, e.g., "Netflix".
+  provider               String?             @db.VarChar(255)
+  /// Account identifier — email or username. Not encrypted because executors need to see it quickly.
+  identifier             String?
+  /// Hint to where the password lives, e.g., "1Password, vault: Family". NO passwords stored here.
+  passwordHint           String?             @map("password_hint")
+  intendedAction         DigitalAssetAction  @default(UNCERTAIN) @map("intended_action")
+  preferredHeirId        String?             @map("preferred_heir_id") @db.Uuid
+  /// Freeform instructions — e.g., "turn off auto-renewal first, then cancel."
+  instructions           String?
+  /// For extra-sensitive instructions users want encrypted at rest.
+  instructionsEncrypted  String?             @map("instructions_encrypted")
+  /// Display order within the principal's list (user-reorderable).
+  priorityOrder          Int                 @default(0) @map("priority_order")
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+  deletedAt              DateTime?           @map("deleted_at")
+
+  principal              Principal           @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  preferredHeir          Person?             @relation(fields: [preferredHeirId], references: [id])
+
+  @@index([tenantId, principalId, kind])
+  @@index([principalId, priorityOrder])
+  @@map("digital_assets")
 }
