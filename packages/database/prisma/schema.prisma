@@ -202,6 +202,7 @@ model Principal {
   instructions  Instruction[]
   registryEntry RegistryEntry?
   heirSearchCase HeirSearchCase?
+  messages      Message[]
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -237,6 +238,7 @@ model Person {
   principal       Principal @relation(fields: [principalId], references: [id], onDelete: Cascade)
   beneficiaryOf   Beneficiary[]
   trustedContact  TrustedContact?
+  messageRecipients MessageRecipient[]
 
   @@index([principalId])
   @@index([lastName, firstName])
@@ -754,4 +756,166 @@ model AuditLog {
   @@index([resourceType, resourceId])
   @@index([event])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// MESSAGES — audio recordings, letters, guided prompts, milestone triggers.
+// Premium legacy-content feature. See docs/messages-module-spec.md.
+//
+// Notes:
+//   - LETTER bodies and Whisper-generated transcripts are field-encrypted via
+//     FieldCryptoService (AES-256-GCM, per-tenant key).
+//   - Audio blobs themselves live in Supabase Storage at `{tenantId}/{messageId}/...`
+//     and are encrypted client-side before upload (WebCrypto AES-GCM). The server
+//     stores only ciphertext + the wrapped per-message key (wrapped with the
+//     principal's data key).
+//   - MessagePrompt rows with tenantId = null are system-provided (see seed).
+// ============================================================================
+
+enum MessageMediaType {
+  AUDIO
+  LETTER
+}
+
+enum MessagePlaybackStyle {
+  /// Plain audio player + text transcript.
+  AUDIO_ONLY
+  /// Stylized animated transcript rendered over a themed card. Add-on feature.
+  RENDERED_CARD
+}
+
+enum RenderedCardTheme {
+  PARCHMENT_WARM   // cream paper, handwritten ink, subtle candle-flicker light
+  GOLD_DUST        // deep navy, hand-lettered script, drifting gold particles
+  GARDEN_LETTER    // botanical border, natural paper grain, flowing cursive
+  FAMILY_ALBUM     // vintage sepia, photo-corner layout, typewritten margin text
+  MODERN_MINIMAL   // clean off-white, elegant serif, no ornament
+}
+
+enum MessageStatus {
+  DRAFT      // still composing
+  SEALED     // finalized, awaiting trigger
+  RELEASED   // delivered to at least one recipient
+  REVOKED    // principal pulled it back
+  ARCHIVED   // subscription lapsed; still held but no new recordings allowed
+}
+
+enum TriggerKind {
+  TIME_ABSOLUTE         // fixed calendar date
+  TIME_RELATIVE_TO_DOB  // "on recipient's Nth birthday"
+  LIFE_EVENT            // graduation, marriage, etc. — requires attestation
+  DEATH_PLUS            // N days after verified death of principal
+}
+
+enum TriggerEvent {
+  GRADUATION
+  MARRIAGE
+  FIRST_CHILD
+  DIVORCE
+  JOB_LOSS
+  DIAGNOSIS
+  GRIEF_FIRST_YEAR
+  CUSTOM
+}
+
+model Message {
+  id                  String               @id @default(uuid()) @db.Uuid
+  tenantId            String               @map("tenant_id") @db.Uuid
+  principalId         String               @map("principal_id") @db.Uuid
+  title               String               @db.VarChar(255)
+  mediaType           MessageMediaType     @map("media_type")
+  /// Supabase Storage object key for audio (null for LETTER).
+  mediaKey            String?              @map("media_key")
+  mediaDurationSec    Int?                 @map("media_duration_sec")
+  mediaSizeBytes      BigInt?              @map("media_size_bytes")
+  /// Symmetric per-message key wrapped with principal's data key (for client-side-encrypted audio).
+  mediaKeyWrapped     String?              @map("media_key_wrapped")
+  /// LETTER body or typed fallback, field-encrypted via FieldCryptoService.
+  bodyEncrypted       String?              @map("body_encrypted")
+  /// Whisper-generated transcript, field-encrypted.
+  transcriptEncrypted String?              @map("transcript_encrypted")
+  /// Word-level timestamps [{word, startMs, endMs}] for rendered-card playback.
+  transcriptTimings   Json?                @map("transcript_timings")
+  playbackStyle       MessagePlaybackStyle @default(AUDIO_ONLY) @map("playback_style")
+  cardTheme           RenderedCardTheme?   @map("card_theme")
+  promptId            String?              @map("prompt_id") @db.Uuid
+  status              MessageStatus        @default(DRAFT)
+  sealedAt            DateTime?            @map("sealed_at")
+  revokedAt           DateTime?            @map("revoked_at")
+  createdAt           DateTime             @default(now()) @map("created_at")
+  updatedAt           DateTime             @updatedAt @map("updated_at")
+  deletedAt           DateTime?            @map("deleted_at")
+
+  principal           Principal            @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  prompt              MessagePrompt?       @relation(fields: [promptId], references: [id])
+  recipients          MessageRecipient[]
+  triggers            MessageTrigger[]
+
+  @@index([tenantId, principalId, status])
+  @@index([status])
+  @@map("messages")
+}
+
+model MessageRecipient {
+  id          String    @id @default(uuid()) @db.Uuid
+  messageId   String    @map("message_id") @db.Uuid
+  personId    String    @map("person_id") @db.Uuid
+  deliveredAt DateTime? @map("delivered_at")
+  viewedAt    DateTime? @map("viewed_at")
+  viewCount   Int       @default(0) @map("view_count")
+  /// Recipient-initiated pause; no future messages from this principal deliver until cleared.
+  pausedAt    DateTime? @map("paused_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  message     Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  person      Person    @relation(fields: [personId], references: [id])
+
+  @@unique([messageId, personId])
+  @@index([personId])
+  @@map("message_recipients")
+}
+
+model MessageTrigger {
+  id                String        @id @default(uuid()) @db.Uuid
+  messageId         String        @map("message_id") @db.Uuid
+  kind              TriggerKind
+  /// TIME_ABSOLUTE — exact release timestamp.
+  releaseAt         DateTime?     @map("release_at")
+  /// TIME_RELATIVE_TO_DOB — age in years (compute against Person.dateOfBirth at fire time).
+  ageYears          Int?          @map("age_years")
+  /// LIFE_EVENT — which event. CUSTOM allows freeform in attestationPolicy.customLabel.
+  eventKind         TriggerEvent? @map("event_kind")
+  /// DEATH_PLUS — days after verified death (default 90).
+  daysAfterDeath    Int?          @map("days_after_death")
+  /// Who must attest and how. Shape:
+  ///   { attestors: [{role: "TRUSTED_CONTACT" | "RECIPIENT", personId: "..."}],
+  ///     requiredCount: 1,
+  ///     customLabel: "when she gets her pilot's license" }
+  attestationPolicy Json?         @map("attestation_policy")
+  firedAt           DateTime?     @map("fired_at")
+  createdAt         DateTime      @default(now()) @map("created_at")
+
+  message           Message       @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@index([firedAt])
+  @@index([kind, firedAt])
+  @@map("message_triggers")
+}
+
+model MessagePrompt {
+  id         String    @id @default(uuid()) @db.Uuid
+  /// null = system-provided (seed); non-null = tenant-authored custom prompt.
+  tenantId   String?   @map("tenant_id") @db.Uuid
+  /// STORY | VALUES | APOLOGY | MILESTONE | RECIPE_STORY | HEIRLOOM | FUNERAL
+  category   String    @db.VarChar(64)
+  title      String    @db.VarChar(255)
+  body       String
+  isSystem   Boolean   @default(false) @map("is_system")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  messages   Message[]
+
+  @@index([category, isSystem])
+  @@map("message_prompts")
 }
