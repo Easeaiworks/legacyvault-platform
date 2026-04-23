@@ -205,6 +205,7 @@ model Principal {
   messages      Message[]
   digitalAssets DigitalAsset[]
   funeralWishes FuneralWishes?
+  recipes       Recipe[]
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -242,6 +243,7 @@ model Person {
   trustedContact  TrustedContact?
   messageRecipients MessageRecipient[]
   digitalAssetsInherited DigitalAsset[]
+  recipesInherited RecipeInheritor[]
 
   @@index([principalId])
   @@index([lastName, firstName])
@@ -1059,4 +1061,55 @@ model FuneralWishes {
 
   @@index([tenantId])
   @@map("funeral_wishes")
+}
+
+// ============================================================================
+// RECIPE VAULT — structured recipes + origin stories + optional audio walkthrough
+// + inheritor assignment (who should get this recipe next).
+// ============================================================================
+
+model Recipe {
+  id                   String             @id @default(uuid()) @db.Uuid
+  tenantId             String             @map("tenant_id") @db.Uuid
+  principalId          String             @map("principal_id") @db.Uuid
+  title                String             @db.VarChar(255)
+  /// Plaintext origin story — the piece that makes this recipe worth passing down.
+  originStory          String?            @map("origin_story")
+  /// Optional encrypted variant for stories the user wants kept private.
+  originStoryEncrypted String?            @map("origin_story_encrypted")
+  cuisineTags          String[]           @default([]) @map("cuisine_tags")
+  servings             Int?
+  prepTimeMinutes      Int?               @map("prep_time_minutes")
+  cookTimeMinutes      Int?               @map("cook_time_minutes")
+  /// [{name, quantity, unit, notes}]
+  ingredients          Json               @default("[]")
+  /// [{order, text, tipText?}]
+  steps                Json               @default("[]")
+  /// Supabase Storage object key for audio walkthrough.
+  audioKey             String?            @map("audio_key")
+  audioDurationSec     Int?               @map("audio_duration_sec")
+  coverImageKey        String?            @map("cover_image_key")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  deletedAt            DateTime?          @map("deleted_at")
+
+  principal            Principal          @relation(fields: [principalId], references: [id], onDelete: Cascade)
+  inheritors           RecipeInheritor[]
+
+  @@index([tenantId, principalId])
+  @@map("recipes")
+}
+
+model RecipeInheritor {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @map("recipe_id") @db.Uuid
+  personId  String   @map("person_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, personId])
+  @@index([personId])
+  @@map("recipe_inheritors")
 }
