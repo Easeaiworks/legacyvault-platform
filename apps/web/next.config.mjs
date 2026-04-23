@@ -14,6 +14,15 @@ const nextConfig = {
   // Prisma ships platform-specific native binaries — mark them external so
   // Next.js doesn't try to bundle them into the server function.
   serverExternalPackages: ['@prisma/client', 'prisma', 'pdfkit'],
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.pexels.com',
+        pathname: '/photos/**',
+      },
+    ],
+  },
   async headers() {
     return [
       {
