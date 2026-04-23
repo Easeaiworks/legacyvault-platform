@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { PendingReviewBadge } from '@/components/pending-review-badge';
 
 export default function Home() {
@@ -28,38 +29,54 @@ export default function Home() {
 
       {/* REGISTRY HERO — first impression */}
       <section className="bg-gradient-to-b from-ink-50 to-ink-100 px-6 py-20">
-        <div className="mx-auto max-w-4xl text-center">
-          <div className="mb-4 inline-block rounded-full bg-accent-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-accent-700">
-            Free registration · Identity-verified · You control visibility
+        <div className="mx-auto grid max-w-6xl items-center gap-12 md:grid-cols-2">
+          <div className="text-left">
+            <div className="mb-4 inline-block rounded-full bg-accent-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-accent-700">
+              Free registration · Identity-verified · You control visibility
+            </div>
+            <h1 className="font-serif text-5xl leading-tight text-navy-900 md:text-6xl">
+              Register yourself.
+              <br />
+              <span className="text-accent-700">Then plan your legacy.</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-lg text-ink-500">
+              LegacyVault starts with a free, identity-verified registration. That&apos;s your key
+              to the full platform: secure estate planning, document vault, beneficiary management,
+              and trusted-contact controls. You&apos;re in charge of every piece of it.
+            </p>
+            <div className="mt-10 flex flex-wrap items-center gap-4">
+              <Link
+                href="/register"
+                className="rounded-md bg-navy-700 px-6 py-3 font-medium text-ink-50 hover:bg-navy-900"
+              >
+                Register for free
+              </Link>
+              <Link
+                href="#how-it-works"
+                className="rounded-md border border-ink-300 px-6 py-3 font-medium text-navy-900 hover:bg-ink-100"
+              >
+                How it works
+              </Link>
+            </div>
+            <p className="mt-6 max-w-xl text-sm text-ink-500">
+              Registration is always free. Paid plans unlock the full estate-planning workspace —
+              detail below.
+            </p>
           </div>
-          <h1 className="font-serif text-5xl leading-tight text-navy-900 md:text-6xl">
-            Register yourself.
-            <br />
-            <span className="text-accent-700">Then plan your legacy.</span>
-          </h1>
-          <p className="mx-auto mt-6 max-w-2xl text-lg text-ink-500">
-            LegacyVault starts with a free, identity-verified registration. That&apos;s your key to
-            the full platform: secure estate planning, document vault, beneficiary management, and
-            trusted-contact controls. You&apos;re in charge of every piece of it.
-          </p>
-          <div className="mt-10 flex items-center justify-center gap-4">
-            <Link
-              href="/register"
-              className="rounded-md bg-navy-700 px-6 py-3 font-medium text-ink-50 hover:bg-navy-900"
-            >
-              Register for free
-            </Link>
-            <Link
-              href="#how-it-works"
-              className="rounded-md border border-ink-300 px-6 py-3 font-medium text-navy-900 hover:bg-ink-100"
-            >
-              How it works
-            </Link>
+
+          <div className="relative aspect-[3/4] w-full overflow-hidden rounded-2xl shadow-2xl ring-1 ring-ink-200 md:aspect-[4/5]">
+            <Image
+              src="https://images.pexels.com/photos/8260452/pexels-photo-8260452.jpeg?auto=compress&cs=tinysrgb&w=1600"
+              alt="A mother and her daughter stand together in their kitchen — the people you plan for."
+              fill
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="object-cover"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-navy-900/60 to-transparent p-4 text-xs text-ink-50/90">
+              Photo: Tiger Lily on Pexels
+            </div>
           </div>
-          <p className="mx-auto mt-6 max-w-xl text-sm text-ink-500">
-            Registration is always free. Paid plans unlock the full estate-planning workspace —
-            detail below.
-          </p>
         </div>
       </section>
 
