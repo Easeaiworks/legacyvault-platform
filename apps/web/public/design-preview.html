@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>LegacyVault — Design Refresh Preview</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      /* Paper + Ink neutrals */
+      --paper: #f5f4f0;
+      --paper-warm: #ece8dc;
+      --ink-50: #faf9f5;
+      --ink-100: #efece2;
+      --ink-200: #e0dcd0;
+      --ink-300: #c8c3b3;
+      --ink-500: #7a746a;
+      --ink-700: #443f37;
+      --ink-900: #1a1814;
+
+      /* Navy — primary */
+      --navy-900: #0d1e33;
+      --navy-800: #142b48;
+      --navy-700: #1e3a5f;
+      --navy-500: #35577e;
+      --navy-100: #c9d3e0;
+
+      /* Gold — accent */
+      --gold-700: #a67918;
+      --gold-500: #c9962b;
+      --gold-300: #e3c669;
+      --gold-100: #f3e8c4;
+
+      /* Sage — success/calm */
+      --sage-700: #4d6647;
+      --sage-500: #7a9673;
+      --sage-300: #a9c1a2;
+      --sage-100: #d9e5d3;
+
+      /* Terracotta — warning/without */
+      --terracotta-700: #8e4032;
+      --terracotta-500: #b85742;
+      --terracotta-300: #d68a78;
+      --terracotta-100: #f2d7cd;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      background: var(--paper);
+      color: var(--ink-900);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    .serif { font-family: 'Fraunces', Georgia, serif; letter-spacing: -0.01em; }
+
+    /* --- top bar --- */
+    .previewbar {
+      background: var(--navy-900);
+      color: var(--ink-100);
+      padding: 10px 0;
+      font-size: 13px;
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .previewbar strong { color: var(--gold-300); font-weight: 600; }
+
+    /* --- section base --- */
+    section { padding: 80px 0; border-bottom: 1px solid var(--ink-200); }
+    section:last-child { border-bottom: none; }
+    section h2.serif { font-size: 40px; font-weight: 600; line-height: 1.1; margin: 0 0 12px; color: var(--navy-900); }
+    section .kicker {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--gold-700);
+      margin-bottom: 10px;
+    }
+    section p.lede { font-size: 18px; color: var(--ink-700); max-width: 640px; margin: 0 0 40px; }
+
+    /* --- landing hero mock --- */
+    .navmock {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--ink-200);
+    }
+    .navmock .brand {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--navy-900);
+      letter-spacing: -0.01em;
+    }
+    .navmock .navlinks { display: flex; gap: 28px; font-size: 14px; color: var(--navy-700); }
+    .navmock .navlinks a { color: inherit; text-decoration: none; }
+    .navmock .navlinks a:hover { color: var(--navy-900); }
+    .navmock .navactions { display: flex; align-items: center; gap: 14px; }
+    .flagpill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--ink-100);
+      border: 1px solid var(--ink-200);
+      border-radius: 999px;
+      padding: 4px;
+    }
+    .flagpill button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      border-radius: 999px;
+      padding: 4px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--ink-500);
+      transition: all 0.15s ease;
+    }
+    .flagpill button.on {
+      background: var(--paper);
+      color: var(--navy-900);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+    .flagpill .flag { font-size: 15px; line-height: 1; }
+    .btn {
+      display: inline-block;
+      padding: 12px 22px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 14px;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+    .btn-primary { background: var(--navy-700); color: white; }
+    .btn-primary:hover { background: var(--navy-900); }
+    .btn-secondary { background: transparent; color: var(--navy-900); border-color: var(--ink-300); }
+    .btn-secondary:hover { background: var(--ink-100); }
+    .btn-lg { padding: 15px 28px; font-size: 15px; }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 64px;
+      align-items: center;
+      padding: 100px 0;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--gold-100);
+      color: var(--gold-700);
+      padding: 5px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 24px;
+    }
+    .hero h1.serif {
+      font-size: 72px;
+      font-weight: 500;
+      line-height: 1.02;
+      margin: 0 0 24px;
+      color: var(--navy-900);
+      letter-spacing: -0.02em;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--gold-700);
+    }
+    .hero p.lede { font-size: 19px; color: var(--ink-700); margin: 0 0 36px; max-width: 500px; }
+    .hero-ctas { display: flex; gap: 12px; align-items: center; margin-bottom: 24px; }
+    .hero-note { font-size: 13px; color: var(--ink-500); }
+    .hero-image {
+      aspect-ratio: 4 / 5;
+      background:
+        linear-gradient(180deg, rgba(0,0,0,0) 60%, rgba(13,30,51,0.5)),
+        url("https://images.pexels.com/photos/8260452/pexels-photo-8260452.jpeg?auto=compress&cs=tinysrgb&w=1200") center/cover;
+      border-radius: 20px;
+      box-shadow: 0 30px 80px -30px rgba(13,30,51,0.35);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-image .credit {
+      position: absolute;
+      bottom: 12px;
+      left: 16px;
+      color: rgba(255,255,255,0.85);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+
+    /* --- palette --- */
+    .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; }
+    .swatch { }
+    .swatch .chip {
+      aspect-ratio: 1;
+      border-radius: 12px;
+      box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+    }
+    .swatch .name { margin-top: 10px; font-weight: 600; font-size: 13px; color: var(--navy-900); }
+    .swatch .hex { font-size: 12px; color: var(--ink-500); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+    .swatch-row { margin-bottom: 44px; }
+    .swatch-row h3 { font-size: 14px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-500); margin: 0 0 16px; font-weight: 600; }
+
+    /* --- typography specimen --- */
+    .type-specimen { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    .type-panel {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      border: 1px solid var(--ink-200);
+    }
+    .type-panel h3 { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold-700); margin: 0 0 20px; font-weight: 600; }
+    .type-panel .display { font-family: 'Fraunces', Georgia, serif; font-size: 56px; font-weight: 500; line-height: 1.05; color: var(--navy-900); letter-spacing: -0.02em; margin: 0 0 8px; }
+    .type-panel .h1 { font-family: 'Fraunces', Georgia, serif; font-size: 36px; font-weight: 500; line-height: 1.1; color: var(--navy-900); margin: 0 0 6px; }
+    .type-panel .h2 { font-family: 'Fraunces', Georgia, serif; font-size: 24px; font-weight: 500; line-height: 1.2; color: var(--navy-900); margin: 0 0 20px; }
+    .type-panel .body-lg { font-size: 18px; line-height: 1.6; color: var(--ink-700); margin: 0 0 12px; }
+    .type-panel .body { font-size: 15px; line-height: 1.6; color: var(--ink-700); margin: 0 0 12px; }
+    .type-panel .small { font-size: 13px; color: var(--ink-500); }
+
+    /* --- WITHOUT/WITH table --- */
+    .wwtable {
+      display: grid;
+      grid-template-columns: 200px 1fr 1fr;
+      background: white;
+      border: 1px solid var(--ink-200);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px -30px rgba(13,30,51,0.15);
+    }
+    .wwtable .head {
+      padding: 24px;
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 20px;
+      font-weight: 600;
+      border-bottom: 1px solid var(--ink-200);
+    }
+    .wwtable .head.head-label { color: var(--ink-500); }
+    .wwtable .head.without {
+      background: var(--terracotta-100);
+      color: var(--terracotta-700);
+    }
+    .wwtable .head.with {
+      background: var(--sage-100);
+      color: var(--sage-700);
+    }
+    .wwtable .row-label {
+      padding: 22px 24px;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-500);
+      font-weight: 600;
+      border-bottom: 1px solid var(--ink-200);
+      background: var(--ink-50);
+      display: flex;
+      align-items: center;
+    }
+    .wwtable .cell {
+      padding: 22px 24px;
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--ink-700);
+      border-bottom: 1px solid var(--ink-200);
+    }
+    .wwtable .cell.without { background: rgba(242, 215, 205, 0.25); }
+    .wwtable .cell.with { background: rgba(217, 229, 211, 0.25); }
+    .wwtable > div:nth-last-child(-n+3) { border-bottom: none; }
+    .wwtable strong { color: var(--navy-900); font-weight: 600; }
+
+    /* --- readiness score dial --- */
+    .score-panel {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 60px;
+      align-items: center;
+      background: white;
+      border: 1px solid var(--ink-200);
+      border-radius: 20px;
+      padding: 48px;
+      box-shadow: 0 20px 50px -30px rgba(13,30,51,0.15);
+    }
+    .dial {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin: 0 auto;
+    }
+    .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .dial-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .dial-center .score {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 72px;
+      font-weight: 500;
+      line-height: 1;
+      color: var(--navy-900);
+      letter-spacing: -0.03em;
+    }
+    .dial-center .out-of { font-size: 14px; color: var(--ink-500); margin-top: 4px; letter-spacing: 0.05em; }
+    .score-headline {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--navy-900);
+      margin: 0 0 12px;
+      line-height: 1.2;
+    }
+    .score-desc { color: var(--ink-700); margin: 0 0 24px; }
+    .next-steps { list-style: none; padding: 0; margin: 0; }
+    .next-steps li {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-top: 1px solid var(--ink-200);
+      font-size: 15px;
+      color: var(--ink-700);
+    }
+    .next-steps li:first-child { border-top: none; }
+    .next-steps .num {
+      flex-shrink: 0;
+      background: var(--gold-100);
+      color: var(--gold-700);
+      font-size: 12px;
+      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .next-steps a { color: var(--navy-700); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* --- component gallery --- */
+    .cg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .cg-card {
+      background: white;
+      border: 1px solid var(--ink-200);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .cg-card h4 { font-family: 'Fraunces', Georgia, serif; font-size: 20px; font-weight: 500; color: var(--navy-900); margin: 0 0 8px; }
+    .cg-card p { font-size: 14px; color: var(--ink-700); margin: 0; line-height: 1.55; }
+    .cg-card .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 999px;
+      margin-top: 14px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .badge-review { background: var(--gold-100); color: var(--gold-700); }
+    .badge-good { background: var(--sage-100); color: var(--sage-700); }
+    .badge-warn { background: var(--terracotta-100); color: var(--terracotta-700); }
+
+    /* --- footer note --- */
+    footer.pgfoot {
+      background: var(--navy-900);
+      color: var(--ink-300);
+      padding: 60px 0;
+      text-align: center;
+    }
+    footer.pgfoot .take-good-care {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 42px;
+      color: var(--paper);
+      font-weight: 500;
+      letter-spacing: -0.02em;
+      margin: 0 0 10px;
+    }
+    footer.pgfoot .sub { font-size: 14px; color: var(--ink-300); }
+
+    /* --- responsive --- */
+    @media (max-width: 900px) {
+      .hero, .type-specimen, .score-panel { grid-template-columns: 1fr; }
+      .swatches { grid-template-columns: repeat(3, 1fr); }
+      .cg { grid-template-columns: 1fr; }
+      .wwtable { grid-template-columns: 1fr; }
+      .hero h1.serif { font-size: 48px; }
+      .navmock .navlinks { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="previewbar">
+  <strong>Design Refresh Preview</strong> · Not the live app · For AdamB review — approve the palette + type + signature components before we apply to production
+</div>
+
+<div class="container">
+  <!-- ============ NAV + HERO MOCK ============ -->
+  <div class="navmock">
+    <div class="brand">LegacyVault</div>
+    <nav class="navlinks">
+      <a href="#">How it works</a>
+      <a href="#">Guides</a>
+      <a href="#">Providers</a>
+      <a href="#">Pricing</a>
+    </nav>
+    <div class="navactions">
+      <div class="flagpill" role="tablist" aria-label="Country selector">
+        <button class="on" role="tab"><span class="flag">🇺🇸</span>US</button>
+        <button role="tab"><span class="flag">🇨🇦</span>CA</button>
+      </div>
+      <a href="#" class="btn btn-secondary">Sign in</a>
+      <a href="#" class="btn btn-primary">Register — free</a>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div>
+      <div class="hero-badge">Free registration · Identity-verified · You control visibility</div>
+      <h1 class="serif">Register yourself.<br /><em>Then plan your legacy.</em></h1>
+      <p class="lede">Estate planning that meets you where you live — Canada and the United States, jurisdiction-aware from the first click. Wills, powers of attorney, beneficiary audits, and everything else your family will need to find.</p>
+      <div class="hero-ctas">
+        <a href="#" class="btn btn-primary btn-lg">Get started free</a>
+        <a href="#" class="btn btn-secondary btn-lg">How it works</a>
+      </div>
+      <div class="hero-note">Registration always free. Full estate workspace from $12/month.</div>
+    </div>
+    <div class="hero-image">
+      <div class="credit">Photo: Tiger Lily on Pexels</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PALETTE ============ -->
+<section style="background: var(--paper-warm);">
+  <div class="container">
+    <div class="kicker">Design tokens</div>
+    <h2 class="serif">A palette that respects the subject.</h2>
+    <p class="lede">Warm paper background instead of clinical white. Navy for authority. Gold for accent. Sage for calm signals. Terracotta for warnings that don't shout. Nothing about estate planning should feel like a tech product.</p>
+
+    <div class="swatch-row">
+      <h3>Paper &amp; Ink</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:#f5f4f0"></div><div class="name">Paper</div><div class="hex">#f5f4f0</div></div>
+        <div class="swatch"><div class="chip" style="background:#ece8dc"></div><div class="name">Paper Warm</div><div class="hex">#ece8dc</div></div>
+        <div class="swatch"><div class="chip" style="background:#e0dcd0"></div><div class="name">Ink 200</div><div class="hex">#e0dcd0</div></div>
+        <div class="swatch"><div class="chip" style="background:#7a746a"></div><div class="name">Ink 500</div><div class="hex">#7a746a</div></div>
+        <div class="swatch"><div class="chip" style="background:#443f37"></div><div class="name">Ink 700</div><div class="hex">#443f37</div></div>
+        <div class="swatch"><div class="chip" style="background:#1a1814"></div><div class="name">Ink 900</div><div class="hex">#1a1814</div></div>
+      </div>
+    </div>
+
+    <div class="swatch-row">
+      <h3>Navy — primary</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:#c9d3e0"></div><div class="name">Navy 100</div><div class="hex">#c9d3e0</div></div>
+        <div class="swatch"><div class="chip" style="background:#35577e"></div><div class="name">Navy 500</div><div class="hex">#35577e</div></div>
+        <div class="swatch"><div class="chip" style="background:#1e3a5f"></div><div class="name">Navy 700</div><div class="hex">#1e3a5f</div></div>
+        <div class="swatch"><div class="chip" style="background:#142b48"></div><div class="name">Navy 800</div><div class="hex">#142b48</div></div>
+        <div class="swatch"><div class="chip" style="background:#0d1e33"></div><div class="name">Navy 900</div><div class="hex">#0d1e33</div></div>
+        <div class="swatch"><div class="chip" style="background:linear-gradient(45deg, #0d1e33 50%, #1e3a5f 50%)"></div><div class="name">Range</div><div class="hex">gradient</div></div>
+      </div>
+    </div>
+
+    <div class="swatch-row">
+      <h3>Gold — accent</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:#f3e8c4"></div><div class="name">Gold 100</div><div class="hex">#f3e8c4</div></div>
+        <div class="swatch"><div class="chip" style="background:#e3c669"></div><div class="name">Gold 300</div><div class="hex">#e3c669</div></div>
+        <div class="swatch"><div class="chip" style="background:#c9962b"></div><div class="name">Gold 500</div><div class="hex">#c9962b</div></div>
+        <div class="swatch"><div class="chip" style="background:#a67918"></div><div class="name">Gold 700</div><div class="hex">#a67918</div></div>
+      </div>
+    </div>
+
+    <div class="swatch-row">
+      <h3>Sage — calm / success (new)</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:#d9e5d3"></div><div class="name">Sage 100</div><div class="hex">#d9e5d3</div></div>
+        <div class="swatch"><div class="chip" style="background:#a9c1a2"></div><div class="name">Sage 300</div><div class="hex">#a9c1a2</div></div>
+        <div class="swatch"><div class="chip" style="background:#7a9673"></div><div class="name">Sage 500</div><div class="hex">#7a9673</div></div>
+        <div class="swatch"><div class="chip" style="background:#4d6647"></div><div class="name">Sage 700</div><div class="hex">#4d6647</div></div>
+      </div>
+    </div>
+
+    <div class="swatch-row">
+      <h3>Terracotta — warning (new)</h3>
+      <div class="swatches">
+        <div class="swatch"><div class="chip" style="background:#f2d7cd"></div><div class="name">Terra 100</div><div class="hex">#f2d7cd</div></div>
+        <div class="swatch"><div class="chip" style="background:#d68a78"></div><div class="name">Terra 300</div><div class="hex">#d68a78</div></div>
+        <div class="swatch"><div class="chip" style="background:#b85742"></div><div class="name">Terra 500</div><div class="hex">#b85742</div></div>
+        <div class="swatch"><div class="chip" style="background:#8e4032"></div><div class="name">Terra 700</div><div class="hex">#8e4032</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ TYPOGRAPHY ============ -->
+<section>
+  <div class="container">
+    <div class="kicker">Typography</div>
+    <h2 class="serif">Fraunces for warmth, Inter for clarity.</h2>
+    <p class="lede">A humanist serif with just enough character to feel considered — not stiff, not cutesy. Inter for everything else because it renders beautifully everywhere and never gets in the way.</p>
+
+    <div class="type-specimen">
+      <div class="type-panel">
+        <h3>Fraunces — display &amp; headings</h3>
+        <div class="display">Take good care.</div>
+        <div class="h1">A will is the smallest gift you can leave.</div>
+        <div class="h2">What happens without one</div>
+        <div class="small">Fraunces · Variable · 500–600 weights · optical size axis</div>
+      </div>
+      <div class="type-panel">
+        <h3>Inter — body &amp; UI</h3>
+        <div class="body-lg">Dying without a will means the government decides who gets your assets — using a rigid statutory formula that ignores your relationships and your family's needs.</div>
+        <div class="body">In Ontario alone, probate fees on a $500,000 estate are $6,750 — before legal costs, which can add another $5,000–15,000. The entire process takes 12 to 24 months.</div>
+        <div class="body">These are not edge cases. They happen every day. And almost all of them are preventable with a few documents.</div>
+        <div class="small">Inter · Variable · 400–700 weights</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WITHOUT/WITH TABLE ============ -->
+<section style="background: var(--paper-warm);">
+  <div class="container">
+    <div class="kicker">Signature component</div>
+    <h2 class="serif">The WITHOUT / WITH table.</h2>
+    <p class="lede">Our answer to the "why does this matter" question. Sits at the top of every essential-document guide. Numbers pulled from the user's jurisdiction — Ontario probate is different from Alberta is different from Texas is different from New York.</p>
+
+    <div class="wwtable">
+      <div class="head head-label">Last Will &amp; Testament</div>
+      <div class="head without">WITHOUT this document</div>
+      <div class="head with">WITH this document</div>
+
+      <div class="row-label">What happens</div>
+      <div class="cell without">Provincial <strong>intestacy laws</strong> decide everything. Court appoints an administrator (not your choice). Common-law partners may inherit nothing. Family disputes over who gets what. <strong>Children's guardian chosen by the court.</strong></div>
+      <div class="cell with">Your chosen executor manages everything. Assets go exactly where you want. <strong>Guardian you trust</strong> raises your children. Clear instructions reduce family conflict.</div>
+
+      <div class="row-label">Estimated cost</div>
+      <div class="cell without"><strong>$10,000–$50,000+</strong> in legal fees, court costs, and delays. Family relationships often permanently damaged.</div>
+      <div class="cell with"><strong>$500–$2,500</strong> for a professionally drafted will. Online wills available for $50–$300 but carry risks.</div>
+
+      <div class="row-label">Timeline</div>
+      <div class="cell without"><strong>12–24 months</strong> for intestate estate administration. Longer with disputes.</div>
+      <div class="cell with"><strong>3–9 months</strong> for a typical probated estate. Faster with proper planning.</div>
+    </div>
+
+    <p style="margin-top: 40px; text-align: center; color: var(--ink-500); font-size: 14px;">Numbers reflect Ontario. Toggle to <span style="color: var(--navy-700); font-weight: 500;">🇺🇸 US</span> and the whole table updates — state probate rules, dollar figures, terminology.</p>
+  </div>
+</section>
+
+<!-- ============ READINESS SCORE ============ -->
+<section>
+  <div class="container">
+    <div class="kicker">Dashboard headline metric</div>
+    <h2 class="serif">Estate Readiness Score.</h2>
+    <p class="lede">One number — computed from everything else — that gives users something to reduce. Trust &amp; Will calls theirs "Plan Strength." Ours has more sections because our vault has more moving parts. The visual treatment is warm, not gamified.</p>
+
+    <div class="score-panel">
+      <div>
+        <div class="dial">
+          <svg viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#efece2" stroke-width="16" />
+            <circle cx="100" cy="100" r="88" fill="none" stroke="#c9962b" stroke-width="16"
+                    stroke-dasharray="342 553" stroke-linecap="round" />
+          </svg>
+          <div class="dial-center">
+            <div class="score">62</div>
+            <div class="out-of">OUT OF 100</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="score-headline">You're more than halfway there.</div>
+        <p class="score-desc">Three items would raise your score above 80. Each takes about 10 minutes.</p>
+        <ul class="next-steps">
+          <li><span class="num">1</span><div><strong>Add a beneficiary to your RRSP.</strong> Currently naming "my estate," which triggers probate.<br /><a href="#">Fix this →</a></div></li>
+          <li><span class="num">2</span><div><strong>Upload your Power of Attorney.</strong> We can see you don't have one on file.<br /><a href="#">Add document →</a></div></li>
+          <li><span class="num">3</span><div><strong>Name a guardian for your children.</strong> Emma and Ada don't have one specified in your will.<br /><a href="#">Update will →</a></div></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ COMPONENT GALLERY ============ -->
+<section style="background: var(--paper-warm);">
+  <div class="container">
+    <div class="kicker">Component grammar</div>
+    <h2 class="serif">Reserved status treatments.</h2>
+    <p class="lede">No confetti, no streaks, no "you did it!" celebrations. Estate planning isn't Duolingo. Status is signaled through calm badges that fit the tone.</p>
+
+    <div class="cg">
+      <div class="cg-card">
+        <h4>Beneficiary designations</h4>
+        <p>2 of 5 accounts have out-of-date beneficiaries. Update these before your family has to fight about it.</p>
+        <span class="badge badge-warn">Action needed</span>
+      </div>
+      <div class="cg-card">
+        <h4>Funeral wishes</h4>
+        <p>Your funeral wishes document is complete. Your executor, Charles Babbage, will be sent a copy at the right time.</p>
+        <span class="badge badge-good">Complete</span>
+      </div>
+      <div class="cg-card">
+        <h4>Last Will &amp; Testament</h4>
+        <p>Your will was signed 6 years ago. Estate laws recommend review after major life events, or every 3–5 years.</p>
+        <span class="badge badge-review">Review recommended</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer class="pgfoot">
+  <div class="container">
+    <div class="take-good-care">Take good care.</div>
+    <div class="sub">The trust layer beneath everything you'll leave behind.</div>
+  </div>
+</footer>
+
+</body>
+</html>
