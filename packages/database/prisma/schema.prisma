@@ -1189,3 +1189,56 @@ model CredentialEntry {
   @@index([tenantId, principalId])
   @@map("credential_entries")
 }
+
+// ============================================================================
+// PROVIDER DIRECTORY — curated professionals + referral services.
+// No affiliate fees at launch; ranking by public signals (bar admission,
+// NAPFA membership, BBB rating, Google review floor).
+// ============================================================================
+
+enum ProviderKind {
+  LAWYER
+  FINANCIAL_PLANNER
+  WILL_SERVICE
+  INSURANCE_ADVISOR
+  REFERRAL_SERVICE
+}
+
+enum ProviderFeeModel {
+  HOURLY
+  FLAT
+  AUM_PCT
+  COMMISSION
+  SUBSCRIPTION
+  FREE
+  MIXED
+}
+
+model Provider {
+  id                 String            @id @default(uuid()) @db.Uuid
+  kind               ProviderKind
+  displayName        String            @map("display_name") @db.VarChar(255)
+  firmName           String?           @map("firm_name") @db.VarChar(255)
+  description        String?
+  credentialsList    String[]          @default([]) @map("credentials_list")
+  specializesIn      String[]          @default([]) @map("specializes_in")
+  country            String            @db.Char(2)
+  regions            String[]          @default([])
+  feeModel           ProviderFeeModel? @map("fee_model")
+  feeRangeMin        Int?              @map("fee_range_min")
+  feeRangeMax        Int?              @map("fee_range_max")
+  websiteUrl         String            @map("website_url")
+  phone              String?           @db.VarChar(50)
+  email              String?           @db.VarChar(255)
+  isFiduciary        Boolean           @default(false) @map("is_fiduciary")
+  isFeeOnly          Boolean           @default(false) @map("is_fee_only")
+  vettingSourcesJson Json              @default("{}") @map("vetting_sources_json")
+  discoveryPriority  Int               @default(0) @map("discovery_priority")
+  publishedAt        DateTime?         @map("published_at")
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  @@index([kind, country, publishedAt])
+  @@index([country])
+  @@map("providers")
+}
