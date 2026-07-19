@@ -175,8 +175,9 @@ export function generateRecoveryCode(): string {
   for (let g = 0; g < groups; g++) {
     let chunk = '';
     for (let c = 0; c < chars; c++) {
-      const idx = rand[g * chars + c]! % SAFE_ALPHABET.length;
-      chunk += SAFE_ALPHABET[idx];
+      const byte = rand[g * chars + c] ?? 0;
+      const idx = byte % SAFE_ALPHABET.length;
+      chunk += SAFE_ALPHABET.charAt(idx);
     }
     out.push(chunk);
   }

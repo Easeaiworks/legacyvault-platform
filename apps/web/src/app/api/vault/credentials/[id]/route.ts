@@ -48,6 +48,20 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       linkedDigitalAssetId?: string | null;
     };
 
+    const VALID_ACTIONS = [
+      'CANCEL',
+      'TRANSFER',
+      'MEMORIALIZE',
+      'DELETE',
+      'PRESERVE',
+      'UNCERTAIN',
+    ] as const;
+    type Action = (typeof VALID_ACTIONS)[number];
+    const validatedAction: Action | undefined =
+      intendedAction !== undefined && VALID_ACTIONS.includes(intendedAction as Action)
+        ? (intendedAction as Action)
+        : undefined;
+
     const updated = await prisma.credentialEntry.update({
       where: { id },
       data: {
@@ -55,7 +69,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
         ...(provider !== undefined ? { provider } : {}),
         ...(ciphertextBase64 !== undefined ? { ciphertextBase64 } : {}),
         ...(ivBase64 !== undefined ? { ivBase64 } : {}),
-        ...(intendedAction !== undefined ? { intendedAction: intendedAction as never } : {}),
+        ...(validatedAction !== undefined ? { intendedAction: validatedAction } : {}),
         ...(linkedDigitalAssetId !== undefined ? { linkedDigitalAssetId } : {}),
       },
     });

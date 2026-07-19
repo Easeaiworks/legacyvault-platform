@@ -81,6 +81,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'invalid kind' }, { status: 400 });
     }
 
+    const VALID_ACTIONS = [
+      'CANCEL',
+      'TRANSFER',
+      'MEMORIALIZE',
+      'DELETE',
+      'PRESERVE',
+      'UNCERTAIN',
+    ] as const;
+    type Action = (typeof VALID_ACTIONS)[number];
+    const action: Action = VALID_ACTIONS.includes(intendedAction as Action)
+      ? (intendedAction as Action)
+      : 'UNCERTAIN';
+
     const entry = await prisma.credentialEntry.create({
       data: {
         tenantId: user.tenantId,
@@ -90,7 +103,7 @@ export async function POST(req: NextRequest) {
         provider: provider ?? null,
         ciphertextBase64,
         ivBase64,
-        intendedAction: (intendedAction as never) ?? 'UNCERTAIN',
+        intendedAction: action,
         linkedDigitalAssetId: linkedDigitalAssetId ?? null,
       },
     });
