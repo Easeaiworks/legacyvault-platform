@@ -16,6 +16,14 @@ const IV_BYTES = 12; // GCM standard IV size
 
 // ---- primitives ------------------------------------------------------
 
+/**
+ * TS 5.7 made Uint8Array generic over ArrayBufferLike; WebCrypto's BufferSource
+ * expects a real ArrayBuffer (not SharedArrayBuffer). This helper coerces.
+ */
+function bs(u: Uint8Array): BufferSource {
+  return u as unknown as BufferSource;
+}
+
 export function randomBytes(n: number): Uint8Array {
   const arr = new Uint8Array(n);
   crypto.getRandomValues(arr);
@@ -53,13 +61,13 @@ export async function deriveKey(
   const salt = fromBase64(saltBase64);
   const baseKey = await crypto.subtle.importKey(
     'raw',
-    enc.encode(passphrase),
+    bs(enc.encode(passphrase)),
     { name: 'PBKDF2' },
     false,
     ['deriveKey'],
   );
   return crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: bs(salt), iterations, hash: 'SHA-256' },
     baseKey,
     { name: 'AES-GCM', length: 256 },
     false, // not extractable
@@ -86,7 +94,7 @@ export async function wrapVmk(
 ): Promise<{ ciphertextBase64: string; ivBase64: string }> {
   const iv = randomBytes(IV_BYTES);
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, wrappingKey, vmk),
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: bs(iv) }, wrappingKey, bs(vmk)),
   );
   return { ciphertextBase64: toBase64(ciphertext), ivBase64: toBase64(iv) };
 }
@@ -102,9 +110,9 @@ export async function unwrapVmk(
   const ciphertext = fromBase64(ciphertextBase64);
   const iv = fromBase64(ivBase64);
   const raw = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: bs(iv) },
     wrappingKey,
-    ciphertext,
+    bs(ciphertext),
   );
   return new Uint8Array(raw);
 }
@@ -113,7 +121,7 @@ export async function unwrapVmk(
  * Import raw VMK bytes as an AES-GCM CryptoKey for encrypting credentials.
  */
 export async function importVmkAsKey(vmk: Uint8Array): Promise<CryptoKey> {
-  return crypto.subtle.importKey('raw', vmk, { name: 'AES-GCM' }, false, [
+  return crypto.subtle.importKey('raw', bs(vmk), { name: 'AES-GCM' }, false, [
     'encrypt',
     'decrypt',
   ]);
@@ -131,7 +139,7 @@ export async function encryptJson(
   const iv = randomBytes(IV_BYTES);
   const bytes = enc.encode(JSON.stringify(plaintext));
   const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, vmkKey, bytes),
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: bs(iv) }, vmkKey, bs(bytes)),
   );
   return { ciphertextBase64: toBase64(ciphertext), ivBase64: toBase64(iv) };
 }
@@ -145,9 +153,9 @@ export async function decryptJson<T = unknown>(
   vmkKey: CryptoKey,
 ): Promise<T> {
   const raw = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: fromBase64(ivBase64) },
+    { name: 'AES-GCM', iv: bs(fromBase64(ivBase64)) },
     vmkKey,
-    fromBase64(ciphertextBase64),
+    bs(fromBase64(ciphertextBase64)),
   );
   return JSON.parse(dec.decode(raw)) as T;
 }
