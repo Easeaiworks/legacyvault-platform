@@ -24,6 +24,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               Legacy
             </div>
             <NavLink href="/app/messages">Messages</NavLink>
+            <NavLink href="/app/vault">Credential vault</NavLink>
           </nav>
         </aside>
         <main className="ml-60 p-10">{children}</main>

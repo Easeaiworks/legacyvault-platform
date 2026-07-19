@@ -206,6 +206,8 @@ model Principal {
   digitalAssets DigitalAsset[]
   funeralWishes FuneralWishes?
   recipes       Recipe[]
+  vaultConfig   VaultConfig?
+  credentials   CredentialEntry[]
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -1112,4 +1114,78 @@ model RecipeInheritor {
   @@unique([recipeId, personId])
   @@index([personId])
   @@map("recipe_inheritors")
+}
+
+// ============================================================================
+// CREDENTIAL VAULT — zero-knowledge storage of logins, security-question
+// answers, recovery codes, seed phrases, and 2FA secrets.
+//
+// Architecture:
+//   - User sets a Vault Password separate from their account login.
+//   - We derive a symmetric key from that password via PBKDF2-SHA256 (600k iters).
+//   - We generate a random Vault Master Key (VMK) at setup.
+//   - We wrap the VMK with the password-derived key AND with a recovery-code-derived
+//     key. Both wrapped copies live server-side. Either can unlock.
+//   - Individual credential fields (username, password, notes, etc.) are
+//     JSON-encoded then AES-256-GCM encrypted with the VMK client-side.
+//   - Server never sees plaintext credentials, plaintext VMK, or the
+//     password/recovery code themselves.
+//
+// If the user loses BOTH the vault password AND the recovery code, data is
+// unrecoverable. This is the tradeoff of true zero-knowledge storage —
+// LegacyVault cannot restore what it cannot see.
+// ============================================================================
+
+enum CredentialKind {
+  LOGIN
+  SECURITY_ANSWER
+  RECOVERY_CODE
+  SEED_PHRASE
+  TOTP_SEED
+  OTHER
+}
+
+model VaultConfig {
+  principalId                    String   @id @map("principal_id") @db.Uuid
+  /// KDF used for both password-derived and recovery-derived keys.
+  kdfAlgorithm                   String   @default("PBKDF2-SHA256") @map("kdf_algorithm") @db.VarChar(32)
+  kdfIterations                  Int      @default(600000) @map("kdf_iterations")
+  kdfSaltBase64                  String   @map("kdf_salt_base64")
+  /// VMK encrypted with the password-derived key (AES-GCM).
+  vmkWrappedByPasswordBase64     String   @map("vmk_wrapped_by_password_base64")
+  vmkWrappedByPasswordIvBase64   String   @map("vmk_wrapped_by_password_iv_base64")
+  /// VMK encrypted with the recovery-code-derived key.
+  vmkWrappedByRecoveryBase64     String   @map("vmk_wrapped_by_recovery_base64")
+  vmkWrappedByRecoveryIvBase64   String   @map("vmk_wrapped_by_recovery_iv_base64")
+  /// Optional user-provided hint about where the recovery code is stored (e.g., "with will in safe deposit box").
+  recoveryCodeHint               String?  @map("recovery_code_hint") @db.VarChar(255)
+  createdAt                      DateTime @default(now()) @map("created_at")
+  updatedAt                      DateTime @updatedAt @map("updated_at")
+
+  principal                      Principal @relation(fields: [principalId], references: [id], onDelete: Cascade)
+
+  @@map("vault_configs")
+}
+
+model CredentialEntry {
+  id                     String              @id @default(uuid()) @db.Uuid
+  tenantId               String              @map("tenant_id") @db.Uuid
+  principalId            String              @map("principal_id") @db.Uuid
+  kind                   CredentialKind      @default(LOGIN)
+  label                  String              @db.VarChar(255)
+  provider               String?             @db.VarChar(255)
+  /// Client-encrypted JSON blob containing username/password/notes/etc.
+  ciphertextBase64       String              @map("ciphertext_base64")
+  ivBase64               String              @map("iv_base64")
+  intendedAction         DigitalAssetAction  @default(UNCERTAIN) @map("intended_action")
+  /// Optional link to an existing DigitalAsset (e.g., the Netflix entry).
+  linkedDigitalAssetId   String?             @map("linked_digital_asset_id") @db.Uuid
+  createdAt              DateTime            @default(now()) @map("created_at")
+  updatedAt              DateTime            @updatedAt @map("updated_at")
+  deletedAt              DateTime?           @map("deleted_at")
+
+  principal              Principal           @relation(fields: [principalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, principalId])
+  @@map("credential_entries")
 }
