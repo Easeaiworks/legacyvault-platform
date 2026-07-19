@@ -30,3 +30,63 @@ body {
   font-optical-sizing: auto;
   letter-spacing: -0.01em;
 }
+
+/* Guide body prose — hand-tuned for legibility on long-form estate content.
+   Avoids pulling in @tailwindcss/typography and its extra weight. */
+.prose-guide {
+  font-size: 17px;
+  line-height: 1.7;
+  color: rgb(68, 63, 55); /* ink-700 */
+}
+.prose-guide > * + * {
+  margin-top: 1.2em;
+}
+.prose-guide h2 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.2;
+  color: rgb(13, 30, 51); /* navy-900 */
+  letter-spacing: -0.01em;
+  margin-top: 2.2em;
+  margin-bottom: 0.6em;
+}
+.prose-guide h3 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 22px;
+  font-weight: 500;
+  color: rgb(13, 30, 51);
+  margin-top: 1.8em;
+  margin-bottom: 0.4em;
+}
+.prose-guide strong {
+  color: rgb(13, 30, 51);
+  font-weight: 600;
+}
+.prose-guide ul, .prose-guide ol {
+  padding-left: 1.5em;
+}
+.prose-guide li + li {
+  margin-top: 0.5em;
+}
+.prose-guide code {
+  background: rgb(239, 236, 226);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+.prose-guide a {
+  color: rgb(30, 58, 95);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose-guide a:hover {
+  color: rgb(13, 30, 51);
+}
+.prose-guide blockquote {
+  border-left: 4px solid rgb(201, 150, 43);
+  padding: 0.8em 1.2em;
+  background: rgb(236, 232, 220);
+  font-style: italic;
+  color: rgb(26, 24, 20);
+}

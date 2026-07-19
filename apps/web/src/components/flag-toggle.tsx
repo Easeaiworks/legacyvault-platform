@@ -29,11 +29,16 @@ export function FlagToggle({ compact = false }: { compact?: boolean }) {
     setCountry(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
+      // Cookie so server-rendered pages (guides, calculators) can read it.
+      // 1 year, root path, SameSite=Lax.
+      document.cookie = `lv_country=${next}; Max-Age=31536000; Path=/; SameSite=Lax`;
     } catch {
       /* ignore */
     }
     // Notify any listeners so downstream components can re-hydrate.
     window.dispatchEvent(new CustomEvent('lv:country-change', { detail: next }));
+    // Force a soft reload so server-rendered content picks up the new cookie.
+    if (typeof window !== 'undefined') window.location.reload();
   }
 
   return (
