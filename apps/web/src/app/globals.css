@@ -90,3 +90,33 @@ body {
   font-style: italic;
   color: rgb(26, 24, 20);
 }
+.prose-guide table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+  background: rgb(250, 249, 245);
+  border: 1px solid rgb(224, 220, 208);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px -12px rgba(13, 30, 51, 0.1);
+}
+.prose-guide thead {
+  background: rgb(236, 232, 220);
+}
+.prose-guide th {
+  text-align: left;
+  padding: 12px 16px;
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 500;
+  color: rgb(13, 30, 51);
+  border-bottom: 1px solid rgb(224, 220, 208);
+}
+.prose-guide td {
+  padding: 12px 16px;
+  border-top: 1px solid rgb(239, 236, 226);
+  color: rgb(68, 63, 55);
+  vertical-align: top;
+}
+.prose-guide tbody tr:nth-child(even) {
+  background: rgb(239, 236, 226, 0.35);
+}
