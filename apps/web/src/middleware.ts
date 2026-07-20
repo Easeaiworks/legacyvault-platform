@@ -1,18 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { jwtVerify } from 'jose';
+
+const JWT_SECRET = process.env.JWT_SECRET ?? 'dev-secret-change-me-in-production-must-be-long';
+const secretBytes = new TextEncoder().encode(JWT_SECRET);
+
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 /**
- * Next.js middleware — gates /app/* and /onboarding/* routes.
+ * Next.js middleware.
  *
- * In WorkOS mode the API sets an HttpOnly `lv_session` cookie on the
- * same eTLD+1, which we check for presence here. Full verification happens
- * in the API on every request — this middleware only does a short-circuit
- * redirect for unauthenticated users to avoid flashing the dashboard.
+ * 1. Gates /app/* routes (WorkOS mode only — local mode defers to AuthGate).
+ * 2. Enforces read-only access for VAULT_VIEWER tokens: any write-method
+ *    /api request carrying a JWT whose roles include VAULT_VIEWER but not
+ *    VAULT_OWNER is rejected with 403 here, at a single choke point, so no
+ *    individual route handler can forget the check. Requests without a JWT
+ *    (public endpoints like death-verifications, worker-token endpoints)
+ *    are unaffected — their own handlers keep their own auth.
  */
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const protectedPaths = ['/app'];
 
-  const isProtected = protectedPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (pathname.startsWith('/api/')) {
+    if (!WRITE_METHODS.has(req.method)) return NextResponse.next();
+
+    const authHeader = req.headers.get('authorization') ?? '';
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    const token = bearer ?? req.cookies.get('lv_session')?.value ?? null;
+    if (!token) return NextResponse.next();
+
+    try {
+      const { payload } = await jwtVerify(token, secretBytes);
+      const roles = (payload.roles as string[]) ?? [];
+      if (roles.includes('VAULT_VIEWER') && !roles.includes('VAULT_OWNER')) {
+        return NextResponse.json(
+          { error: 'View-only access: this account cannot make changes' },
+          { status: 403 },
+        );
+      }
+    } catch {
+      // Invalid/expired token — let the route's own auth produce the 401.
+    }
+    return NextResponse.next();
+  }
+
+  const isProtected = pathname === '/app' || pathname.startsWith('/app/');
   if (!isProtected) return NextResponse.next();
 
   const cookie = req.cookies.get('lv_session');
@@ -32,5 +63,5 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*'],
+  matcher: ['/app/:path*', '/api/:path*'],
 };

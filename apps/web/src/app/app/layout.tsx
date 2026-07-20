@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ReactNode } from 'react';
 import { AuthGate } from '@/components/auth-gate';
 import { OpsNav } from '@/components/ops-nav';
+import { ViewerBanner } from '@/components/viewer-banner';
 
 // Authenticated shell for the LegacyVault app.
 export default function AppLayout({ children }: { children: ReactNode }) {
@@ -32,10 +33,14 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               Account
             </div>
             <NavLink href="/app/settings/security">Security</NavLink>
+            <NavLink href="/app/settings/viewers">Viewer access</NavLink>
             <OpsNav />
           </nav>
         </aside>
-        <main className="ml-60 p-10">{children}</main>
+        <main className="ml-60 p-10">
+          <ViewerBanner />
+          {children}
+        </main>
       </div>
     </AuthGate>
   );
