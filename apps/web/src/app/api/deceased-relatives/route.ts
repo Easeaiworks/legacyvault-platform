@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, getCurrentPrincipal } from '@/lib/auth';
 import { encryptField } from '@/lib/crypto';
@@ -117,7 +118,7 @@ export async function POST(req: NextRequest) {
       legalFirstName?: string;
       legalMiddleName?: string;
       legalLastName?: string;
-      priorNames?: unknown[];
+      priorNames?: Prisma.InputJsonValue[];
       relationship?: Relationship;
       dateOfBirth?: string;
       dateOfDeath?: string;
@@ -126,9 +127,9 @@ export async function POST(req: NextRequest) {
       lastKnownCity?: string;
       lastKnownRegion?: string;
       lastKnownCountry?: string;
-      previousAddresses?: unknown[];
-      employers?: unknown[];
-      financialInstitutions?: unknown[];
+      previousAddresses?: Prisma.InputJsonValue[];
+      employers?: Prisma.InputJsonValue[];
+      financialInstitutions?: Prisma.InputJsonValue[];
       govIdCountry?: string;
       govIdLast4?: string;
       govIdFull?: string;

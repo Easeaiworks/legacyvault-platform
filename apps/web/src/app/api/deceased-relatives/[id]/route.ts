@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, getCurrentPrincipal } from '@/lib/auth';
 import { encryptField } from '@/lib/crypto';
@@ -111,7 +112,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       legalFirstName?: string;
       legalMiddleName?: string | null;
       legalLastName?: string;
-      priorNames?: unknown[];
+      priorNames?: Prisma.InputJsonValue[];
       relationship?: Relationship;
       dateOfBirth?: string | null;
       dateOfDeath?: string | null;
@@ -120,9 +121,9 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
       lastKnownCity?: string | null;
       lastKnownRegion?: string | null;
       lastKnownCountry?: string | null;
-      previousAddresses?: unknown[];
-      employers?: unknown[];
-      financialInstitutions?: unknown[];
+      previousAddresses?: Prisma.InputJsonValue[];
+      employers?: Prisma.InputJsonValue[];
+      financialInstitutions?: Prisma.InputJsonValue[];
       govIdCountry?: string | null;
       govIdLast4?: string | null;
       govIdFull?: string | null;

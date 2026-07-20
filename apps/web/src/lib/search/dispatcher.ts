@@ -67,7 +67,7 @@ export async function dispatchQueuedJobs(maxJobs = 10): Promise<DispatchResult> 
     }
 
     try {
-      const q = job.queryPayload as {
+      const q = job.queryPayload as unknown as {
         subject: Subject;
         firstName: string;
         lastName: string;

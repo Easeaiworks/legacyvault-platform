@@ -14,7 +14,10 @@
     "WORKOS_API_KEY",
     "WORKOS_CLIENT_ID",
     "JWT_SECRET",
-    "FIELD_ENCRYPTION_KEY"
+    "FIELD_ENCRYPTION_KEY",
+    "APP_ENC_KEY",
+    "LV_WORKER_TOKEN",
+    "DEMO_MODE"
   ],
   "tasks": {
     "build": {
