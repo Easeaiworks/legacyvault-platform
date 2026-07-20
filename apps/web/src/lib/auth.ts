@@ -72,6 +72,22 @@ export async function requireAuth(): Promise<AuthUser> {
   return user;
 }
 
+/**
+ * Helper that throws 401 when unauthenticated and 403 when the user has none
+ * of the allowed roles. Use for platform/ops surfaces (e.g. death-verification
+ * review) that must never be reachable by ordinary vault owners.
+ */
+export async function requireRole(allowed: string[]): Promise<AuthUser> {
+  const user = await requireAuth();
+  if (!user.roles.some((r) => allowed.includes(r))) {
+    throw new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
+      headers: { 'content-type': 'application/json' },
+    });
+  }
+  return user;
+}
+
 /** Finds the Principal owned by the current user's tenant. Single-principal per tenant for consumer plans. */
 export async function getCurrentPrincipal(tenantId: string) {
   return prisma.principal.findFirst({
