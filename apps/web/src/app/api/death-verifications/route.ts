@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { isUuid } from '@/lib/ids';
 
 /**
  * POST /api/death-verifications
@@ -35,6 +36,9 @@ export async function POST(req: NextRequest) {
         { error: 'trustedContactId and submitterEmail are required' },
         { status: 400 },
       );
+    }
+    if (!isUuid(trustedContactId)) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
 
     const tc = await prisma.trustedContact.findFirst({

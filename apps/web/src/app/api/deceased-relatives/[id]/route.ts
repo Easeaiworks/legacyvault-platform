@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, getCurrentPrincipal } from '@/lib/auth';
 import { encryptField } from '@/lib/crypto';
+import { isUuid } from '@/lib/ids';
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,6 +35,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     const principal = await getCurrentPrincipal(user.tenantId);
     if (!principal) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const { id } = await ctx.params;
+    if (!isUuid(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const relative = await prisma.deceasedRelative.findFirst({
       where: { id, tenantId: user.tenantId, principalId: principal.id, deletedAt: null },
@@ -78,6 +80,7 @@ export async function PATCH(req: NextRequest, ctx: Ctx) {
     const principal = await getCurrentPrincipal(user.tenantId);
     if (!principal) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const { id } = await ctx.params;
+    if (!isUuid(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const existing = await prisma.deceasedRelative.findFirst({
       where: { id, tenantId: user.tenantId, principalId: principal.id, deletedAt: null },
@@ -220,6 +223,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
     const principal = await getCurrentPrincipal(user.tenantId);
     if (!principal) return NextResponse.json({ error: 'Not found' }, { status: 404 });
     const { id } = await ctx.params;
+    if (!isUuid(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
     const existing = await prisma.deceasedRelative.findFirst({
       where: { id, tenantId: user.tenantId, principalId: principal.id, deletedAt: null },

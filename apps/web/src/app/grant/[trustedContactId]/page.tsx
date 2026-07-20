@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
+import { isUuid } from '@/lib/ids';
 import { GrantForm } from './grant-form';
 
 type PageProps = { params: Promise<{ trustedContactId: string }> };
@@ -18,6 +19,7 @@ export const dynamic = 'force-dynamic';
  */
 export default async function GrantPage({ params }: PageProps) {
   const { trustedContactId } = await params;
+  if (!isUuid(trustedContactId)) notFound();
 
   const tc = await prisma.trustedContact.findFirst({
     where: { id: trustedContactId, deletedAt: null },
