@@ -1,18 +1,24 @@
 {
-    "$schema": "https://openapi.vercel.sh/vercel.json",
-    "framework": "nextjs",
-    "buildCommand": "cd ../.. && npx prisma generate --schema=packages/database/prisma/schema.prisma && npx turbo run build --filter=@legacyvault/web",
-    "installCommand": "cd ../.. && npm install",
-    "outputDirectory": ".next",
-    "devCommand": "next dev -p 3000",
-    "headers": [
-          {
-                  "source": "/(.*)",
-                  "headers": [
-                            { "key": "X-Content-Type-Options", "value": "nosniff" },
-                            { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-                            { "key": "X-Frame-Options", "value": "DENY" }
-                  ]
-          }
-    ]
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && npx prisma generate --schema=packages/database/prisma/schema.prisma && npx turbo run build --filter=@legacyvault/web",
+  "installCommand": "cd ../.. && npm install",
+  "outputDirectory": ".next",
+  "devCommand": "next dev -p 3000",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" }
+      ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/search/dispatch",
+      "schedule": "0 7 * * *"
+    }
+  ]
 }

@@ -46,6 +46,23 @@ export default async function GuidesIndex() {
         </div>
       </section>
 
+      <section className="border-b border-ink-200 bg-paper-warm px-6 py-8">
+        <div className="mx-auto flex max-w-4xl items-center justify-between rounded-2xl border border-ink-200 bg-paper p-6 shadow-soft">
+          <div>
+            <div className="font-serif text-xl text-navy-900">Estate planning glossary</div>
+            <div className="mt-1 text-sm text-ink-500">
+              Every term you&apos;ll hear from a lawyer or planner, defined in plain English.
+            </div>
+          </div>
+          <Link
+            href="/guides/glossary"
+            className="rounded-md border border-ink-300 px-4 py-2 text-sm font-medium text-navy-900 hover:bg-ink-100"
+          >
+            Open glossary →
+          </Link>
+        </div>
+      </section>
+
       {categoryOrder.map(([key, label]) => {
         const items = byCategory[key];
         if (!items || items.length === 0) return null;

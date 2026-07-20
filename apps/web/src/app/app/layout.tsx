@@ -16,6 +16,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             <NavLink href="/app/registry">Registry</NavLink>
             <NavLink href="/app/assets">Assets</NavLink>
             <NavLink href="/app/people">People</NavLink>
+            <NavLink href="/app/deceased-relatives">Deceased relatives</NavLink>
+            <NavLink href="/app/search-results">Search results</NavLink>
             <NavLink href="/app/documents">Documents</NavLink>
             <NavLink href="/app/beneficiaries">Beneficiaries</NavLink>
             <NavLink href="/app/contacts">Trusted contacts</NavLink>
@@ -25,6 +27,10 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             </div>
             <NavLink href="/app/messages">Messages</NavLink>
             <NavLink href="/app/vault">Credential vault</NavLink>
+            <div className="mt-6 mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
+              Account
+            </div>
+            <NavLink href="/app/settings/security">Security</NavLink>
           </nav>
         </aside>
         <main className="ml-60 p-10">{children}</main>

@@ -86,6 +86,12 @@ model User {
   mfaEnforced         Boolean    @default(false) @map("mfa_enforced")
   /// Hardware key required (for admins / HeirTrace staff).
   hardwareKeyRequired Boolean    @default(false) @map("hardware_key_required")
+  /// TOTP secret — encrypted at app layer via APP_ENC_KEY. Null until user completes setup.
+  totpSecretEncrypted String?    @map("totp_secret_encrypted")
+  /// When the user completed TOTP setup. Null if not enrolled.
+  totpEnabledAt       DateTime?  @map("totp_enabled_at")
+  /// SHA-256 hashes of one-time backup codes (each code is 10 hex characters).
+  totpBackupCodesHashed String[] @default([]) @map("totp_backup_codes_hashed")
   status              UserStatus @default(PENDING_VERIFICATION)
   /// Last time user proved they're alive — powers the dead-man's-switch.
   lastCheckInAt       DateTime?  @map("last_check_in_at")
@@ -208,6 +214,7 @@ model Principal {
   recipes       Recipe[]
   vaultConfig   VaultConfig?
   credentials   CredentialEntry[]
+  deceasedRelatives DeceasedRelative[]
 
   @@index([tenantId])
   @@index([legalLastName, legalFirstName])
@@ -260,6 +267,9 @@ enum Relationship {
   SIBLING
   GRANDCHILD
   GRANDPARENT
+  GREAT_GRANDPARENT
+  AUNT_UNCLE
+  COUSIN
   EXECUTOR
   ATTORNEY
   ACCOUNTANT
@@ -584,6 +594,42 @@ enum GrantStatus {
   EXPIRED
 }
 
+/// Death-certification submission from a trusted contact.
+/// Once verified by LegacyVault operations, triggers grants on all TrustedContacts
+/// whose triggerType is DEATH_CERTIFIED for the same Principal.
+model DeathVerification {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            String    @map("tenant_id") @db.Uuid
+  principalId         String    @map("principal_id") @db.Uuid
+  /// Person (existing TrustedContact) who submitted.
+  submittedByPersonId String    @map("submitted_by_person_id") @db.Uuid
+  /// Uploaded death certificate stored as Document.
+  documentId          String?   @map("document_id") @db.Uuid
+  status              DeathVerificationStatus @default(SUBMITTED)
+  /// Optional additional evidence: obituary URL, funeral home contact, etc.
+  supportingEvidence  String?   @map("supporting_evidence")
+  submitterNotes      String?   @map("submitter_notes")
+  /// LegacyVault operations user who reviewed.
+  reviewedByUserId    String?   @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt          DateTime? @map("reviewed_at")
+  reviewNotes         String?   @map("review_notes")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([principalId])
+  @@index([status])
+  @@map("death_verifications")
+}
+
+enum DeathVerificationStatus {
+  SUBMITTED       // received, awaiting review
+  UNDER_REVIEW    // ops reviewing
+  VERIFIED        // approved — triggers apply
+  REJECTED        // rejected — reason in reviewNotes
+  WITHDRAWN       // submitter cancelled
+}
+
 // ============================================================================
 // INSTRUCTIONS — letters of wishes, funeral, pet care, digital disposition
 // ============================================================================
@@ -729,6 +775,94 @@ model UnclaimedAssetSearch {
 
   @@index([caseId])
   @@map("unclaimed_asset_searches")
+}
+
+// ============================================================================
+// SEARCH INFRASTRUCTURE — Tier 1 automated + quarterly report pipeline.
+// Powers the unclaimed-asset search product for living Principals and their
+// deceased-relative records.
+// ============================================================================
+
+/// A queued or completed search run against a specific external source.
+/// One SearchJob per (subject, source, run). Enqueued on relative-add, on
+/// quarterly cadence, and on manual re-run.
+model SearchJob {
+  id                    String            @id @default(uuid()) @db.Uuid
+  tenantId              String            @map("tenant_id") @db.Uuid
+  principalId           String            @map("principal_id") @db.Uuid
+  /// If null, the search is on the Principal themselves. Otherwise, a relative.
+  deceasedRelativeId    String?           @map("deceased_relative_id") @db.Uuid
+  source                String            @db.VarChar(64)
+  /// Query parameters passed to the scraper (JSON: names, dob, region, etc.).
+  queryPayload          Json              @map("query_payload")
+  status                SearchJobStatus   @default(QUEUED)
+  attempts              Int               @default(0)
+  lastAttemptAt         DateTime?         @map("last_attempt_at")
+  lastError             String?           @map("last_error")
+  /// Populated on completion.
+  resultsCount          Int               @default(0) @map("results_count")
+  resultsRawJson        Json?             @map("results_raw_json")
+  completedAt           DateTime?         @map("completed_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  matches               SearchMatch[]
+
+  @@index([tenantId, status])
+  @@index([principalId, source])
+  @@index([status, createdAt])
+  @@map("search_jobs")
+}
+
+enum SearchJobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED           // e.g. source unavailable or region not covered
+}
+
+/// A candidate match returned by a search source, before human review.
+model SearchMatch {
+  id                    String              @id @default(uuid()) @db.Uuid
+  tenantId              String              @map("tenant_id") @db.Uuid
+  jobId                 String              @map("job_id") @db.Uuid
+  principalId           String              @map("principal_id") @db.Uuid
+  deceasedRelativeId    String?             @map("deceased_relative_id") @db.Uuid
+  source                String              @db.VarChar(64)
+  /// Raw match record from the source, JSON.
+  matchJson             Json                @map("match_json")
+  /// Free-text summary the scraper generated.
+  summary               String?
+  /// Confidence 0..1 that this is really the subject.
+  confidence            Float               @default(0)
+  /// Reported value if known (in the currency of the source).
+  reportedValueCents    Int?                @map("reported_value_cents")
+  currency              String?             @db.Char(3)
+  /// Review workflow.
+  reviewStatus          MatchReviewStatus   @default(NEW) @map("review_status")
+  reviewedByUserId      String?             @map("reviewed_by_user_id") @db.Uuid
+  reviewedAt            DateTime?           @map("reviewed_at")
+  reviewNotes           String?             @map("review_notes")
+  /// Whether this match has been surfaced to the user in a report yet.
+  reportedToUserAt      DateTime?           @map("reported_to_user_at")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  job                   SearchJob           @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, reviewStatus])
+  @@index([principalId, reviewStatus])
+  @@index([source])
+  @@map("search_matches")
+}
+
+enum MatchReviewStatus {
+  NEW               // returned by scraper, not yet reviewed
+  UNDER_REVIEW
+  CONFIRMED         // human confirmed it's likely a real match
+  DISMISSED         // false positive
+  CLAIMED           // user has filed a claim on this match
 }
 
 // ============================================================================
@@ -1241,4 +1375,59 @@ model Provider {
   @@index([kind, country, publishedAt])
   @@index([country])
   @@map("providers")
+}
+
+/// A relative of the Principal who has passed away. Powers unclaimed-asset search,
+/// heir-notice monitoring, and death-benefit lookups (SSN death index, provincial
+/// escheat registries, pension databases). Never a User; distinct from Person.
+/// Fields are self-service via /app/deceased-relatives.
+model DeceasedRelative {
+  id                      String    @id @default(uuid()) @db.Uuid
+  tenantId                String    @map("tenant_id") @db.Uuid
+  principalId             String    @map("principal_id") @db.Uuid
+  legalFirstName          String    @map("legal_first_name")
+  legalMiddleName         String?   @map("legal_middle_name")
+  legalLastName           String    @map("legal_last_name")
+  /// Maiden names / prior surnames — critical for fuzzy matching in escheat registries.
+  priorNames              Json      @default("[]") @map("prior_names")
+  /// Relationship to the Principal (e.g. PARENT, GRANDPARENT, AUNT_UNCLE).
+  relationship            Relationship
+  dateOfBirth             DateTime? @map("date_of_birth") @db.Date
+  dateOfDeath             DateTime? @map("date_of_death") @db.Date
+  /// Birth city + country — helps disambiguate common names.
+  birthCity               String?   @map("birth_city")
+  birthCountry            String?   @map("birth_country") @db.Char(2)
+  /// Last known residence — used to seed scraper queries.
+  lastKnownCity           String?   @map("last_known_city")
+  lastKnownRegion         String?   @map("last_known_region") @db.VarChar(8)
+  lastKnownCountry        String?   @map("last_known_country") @db.Char(2)
+  /// Previous addresses (JSON array of {city, region, country, yearFrom?, yearTo?}).
+  previousAddresses       Json      @default("[]") @map("previous_addresses")
+  /// Last known employer(s) (JSON array of {name, city?, region?, yearFrom?, yearTo?}).
+  employers               Json      @default("[]") @map("employers")
+  /// Financial institutions ever used (JSON array of {name, country, region?}).
+  financialInstitutions   Json      @default("[]") @map("financial_institutions")
+  /// Government ID country of issue — 'US' or 'CA'.
+  govIdCountry            String?   @map("gov_id_country") @db.Char(2)
+  /// Last 4 digits of SSN (US) or SIN (CA). Not encrypted — 4 digits alone are not PII-critical.
+  govIdLast4              String?   @map("gov_id_last4") @db.VarChar(4)
+  /// Full SSN (US only, optional) — ENCRYPTED at app layer. Used for SSA Death Master File lookups.
+  govIdFullEncrypted      String?   @map("gov_id_full_encrypted")
+  /// Served in armed forces — enables VA / Veterans Affairs Canada lookups.
+  militaryService         Boolean   @default(false) @map("military_service")
+  /// Has the Principal obtained a copy of the death certificate? Needed for most claims.
+  deathCertificateAvailable Boolean @default(false) @map("death_certificate_available")
+  /// Free-form notes.
+  notes                   String?
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @updatedAt @map("updated_at")
+  deletedAt               DateTime? @map("deleted_at")
+
+  principal               Principal @relation(fields: [principalId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([principalId])
+  @@index([legalLastName, legalFirstName])
+  @@index([govIdCountry, govIdLast4])
+  @@map("deceased_relatives")
 }
