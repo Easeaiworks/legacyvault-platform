@@ -1,8 +1,9 @@
 # LegacyVault — Estate Guidance, Calculators, Providers, and Credential Vault (Spec v3)
 
-**Status:** draft for build
+**Status:** ✅ shipped to production
 **Replaces:** v2 messaging spec + informal password-storage decision
 **Incorporates:** LegacyVault Estate Planning Education Framework (July 2026) + bi-national parity decision + zero-knowledge credential vault decision
+**Last verified auto-deploy:** all 11 launch guides + 3 calculators + 30-entry provider directory + zero-knowledge credential vault + First 30 Days executor checklist all live on production
 
 ---
 
